@@ -531,15 +531,9 @@ export class Environment {
         ]),
 
         //
-        // Numbered
-        new NumberedBarRendererFactory([
-            { effect: new NumberedBarKeySignatureEffectInfo(), mode: EffectBandMode.OwnedTop, order: 1000 }
-        ]),
-
-        //
         // Tabs
         new TabBarRendererFactory([
-            { effect: new LyricsEffectInfo(), mode: EffectBandMode.SharedTop },
+            { effect: new LyricsEffectInfo(), mode: EffectBandMode.OwnedBottom },
 
             { effect: new TabWhammyEffectInfo(), mode: EffectBandMode.OwnedTop },
             { effect: new TrillEffectInfo(), mode: EffectBandMode.OwnedTop },
@@ -572,6 +566,12 @@ export class Environment {
                 mode: EffectBandMode.OwnedBottom,
                 shouldCreate: staff => !staff.showStandardNotation
             }
+        ]),
+
+        //
+        // Numbered
+        new NumberedBarRendererFactory([
+            { effect: new NumberedBarKeySignatureEffectInfo(), mode: EffectBandMode.OwnedTop, order: 1000 }
         ])
     ];
 
@@ -588,8 +588,8 @@ export class Environment {
             new Set<string>([
                 SlashBarRenderer.StaffId,
                 ScoreBarRenderer.StaffId,
-                NumberedBarRenderer.StaffId,
-                TabBarRenderer.StaffId
+                TabBarRenderer.StaffId,
+                NumberedBarRenderer.StaffId
             ])
         );
         staveProfiles.set(
@@ -597,14 +597,23 @@ export class Environment {
             new Set<string>([
                 SlashBarRenderer.StaffId,
                 ScoreBarRenderer.StaffId,
-                NumberedBarRenderer.StaffId,
-                TabBarRenderer.StaffId
+                TabBarRenderer.StaffId,
+                NumberedBarRenderer.StaffId
             ])
         );
 
-        staveProfiles.set(StaveProfile.Score, new Set<string>([ScoreBarRenderer.StaffId]));
-        staveProfiles.set(StaveProfile.Tab, new Set<string>([TabBarRenderer.StaffId]));
-        staveProfiles.set(StaveProfile.TabMixed, new Set<string>([TabBarRenderer.StaffId]));
+        staveProfiles.set(
+            StaveProfile.Score,
+            new Set<string>([ScoreBarRenderer.StaffId, NumberedBarRenderer.StaffId])
+        );
+        staveProfiles.set(
+            StaveProfile.Tab,
+            new Set<string>([TabBarRenderer.StaffId, NumberedBarRenderer.StaffId])
+        );
+        staveProfiles.set(
+            StaveProfile.TabMixed,
+            new Set<string>([TabBarRenderer.StaffId, NumberedBarRenderer.StaffId])
+        );
 
         return staveProfiles;
     }

@@ -227,7 +227,10 @@ export class NumberedBeatGlyph extends BeatOnNoteGlyphBase {
         if (!this.container.beat.isEmpty) {
             const glyphY = sr.getLineY(0);
             let numberWithinOctave = '0';
-            if (this.container.beat.notes.length > 0) {
+            if (this.container.beat.jianpuDisplay) {
+                numberWithinOctave = this.container.beat.jianpuDisplay;
+                octaveDots = this.container.beat.jianpuOctaveShift;
+            } else if (this.container.beat.notes.length > 0) {
                 const note = this.container.beat.notes[0];
                 if (note.isDead) {
                     numberWithinOctave = 'X';

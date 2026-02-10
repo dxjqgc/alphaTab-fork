@@ -414,6 +414,18 @@ export class Beat {
     public text: string | null = null;
 
     /**
+     * Gets or sets the custom number to be displayed in Jianpu mode.
+     * If set, this value overrides the automatically calculated number.
+     */
+    public jianpuDisplay: string | null = null;
+
+    /**
+     * Gets or sets the octave shift for the custom Jianpu number.
+     * 0 = no dots, > 0 = dots above, < 0 = dots below.
+     */
+    public jianpuOctaveShift: number = 0;
+
+    /**
      * Gets or sets whether this beat should be rendered as slashed note.
      */
     public slashed: boolean = false;

@@ -37,6 +37,8 @@ export class BeatCloner {
         clone.slap = original.slap;
         clone.tap = original.tap;
         clone.text = original.text;
+        clone.jianpuDisplay = original.jianpuDisplay;
+        clone.jianpuOctaveShift = original.jianpuOctaveShift;
         clone.slashed = original.slashed;
         clone.deadSlapped = original.deadSlapped;
         clone.brushType = original.brushType;

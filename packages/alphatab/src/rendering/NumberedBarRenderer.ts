@@ -1,12 +1,12 @@
 import { EngravingSettings } from '@coderline/alphatab/EngravingSettings';
 import { MidiUtils } from '@coderline/alphatab/midi/MidiUtils';
 import { type Bar, BarSubElement } from '@coderline/alphatab/model/Bar';
-import { type Beat, BeatSubElement } from '@coderline/alphatab/model/Beat';
+import { Beat, BeatSubElement } from '@coderline/alphatab/model/Beat';
 import { Duration } from '@coderline/alphatab/model/Duration';
 import { GraceType } from '@coderline/alphatab/model/GraceType';
 import { ModelUtils } from '@coderline/alphatab/model/ModelUtils';
 import { MusicFontSymbol } from '@coderline/alphatab/model/MusicFontSymbol';
-import type { Note } from '@coderline/alphatab/model/Note';
+import { Note } from '@coderline/alphatab/model/Note';
 import type { Voice } from '@coderline/alphatab/model/Voice';
 import type { ICanvas } from '@coderline/alphatab/platform/ICanvas';
 import { BeatXPosition } from '@coderline/alphatab/rendering/BeatXPosition';
@@ -76,6 +76,39 @@ export class NumberedBarRenderer extends LineBarRenderer {
 
     protected override get bottomGlyphOverflow(): number {
         return 0;
+    }
+
+    protected override createBeatGlyphs(): void {
+        if (this.bar.jianpuEvents && this.bar.jianpuEvents.length > 0) {
+            // Create custom glyphs from JianpuEvents
+            for (const event of this.bar.jianpuEvents) {
+                // Create a fake beat
+                const beat = new Beat();
+                if (this.bar.voices.length > 0) {
+                    beat.voice = this.bar.voices[0];
+                }
+                beat.duration = event.duration;
+                beat.jianpuDisplay = event.text;
+                beat.jianpuOctaveShift = event.octaveShift;
+                
+                // We need at least one note for it to be considered non-empty/valid by some renderers
+                // and to anchor effects if any (though here we just want the number)
+                const note = new Note();
+                note.beat = beat;
+                beat.notes.push(note); 
+                
+                const container = new NumberedBeatContainerGlyph(beat);
+                this.addBeatGlyph(container);
+            }
+            
+            this.voiceContainer.doLayout();
+
+            if (this.topEffects.isLinkedToPreviousRenderer || this.bottomEffects.isLinkedToPreviousRenderer) {
+                this.isLinkedToPrevious = true;
+            }
+        } else {
+            super.createBeatGlyphs();
+        }
     }
 
     protected override get flagsSubElement(): BeatSubElement {

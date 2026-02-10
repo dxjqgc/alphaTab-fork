@@ -5,9 +5,11 @@
 // </auto-generated>
 import { Bar } from "@coderline/alphatab/model/Bar";
 import { JsonHelper } from "@coderline/alphatab/io/JsonHelper";
+import { JianpuEventSerializer } from "@coderline/alphatab/generated/model/JianpuEventSerializer";
 import { VoiceSerializer } from "@coderline/alphatab/generated/model/VoiceSerializer";
 import { SustainPedalMarkerSerializer } from "@coderline/alphatab/generated/model/SustainPedalMarkerSerializer";
 import { BarStyleSerializer } from "@coderline/alphatab/generated/model/BarStyleSerializer";
+import { JianpuEvent } from "@coderline/alphatab/model/Bar";
 import { Clef } from "@coderline/alphatab/model/Clef";
 import { Ottavia } from "@coderline/alphatab/model/Ottavia";
 import { Voice } from "@coderline/alphatab/model/Voice";
@@ -34,6 +36,7 @@ export class BarSerializer {
         }
         const o = new Map<string, unknown>();
         o.set("id", obj.id);
+        o.set("jianpuevents", obj.jianpuEvents.map(i => JianpuEventSerializer.toJson(i)));
         o.set("clef", obj.clef as number);
         o.set("clefottava", obj.clefOttava as number);
         o.set("voices", obj.voices.map(i => VoiceSerializer.toJson(i)));
@@ -55,6 +58,14 @@ export class BarSerializer {
         switch (property) {
             case "id":
                 obj.id = v! as number;
+                return true;
+            case "jianpuevents":
+                obj.jianpuEvents = [];
+                for (const o of (v as (Map<string, unknown> | null)[])) {
+                    const i = new JianpuEvent();
+                    JianpuEventSerializer.fromJson(i, o);
+                    obj.jianpuEvents.push(i);
+                }
                 return true;
             case "clef":
                 obj.clef = JsonHelper.parseEnum<Clef>(v, Clef)!;

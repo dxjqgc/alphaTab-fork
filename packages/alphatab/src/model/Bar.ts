@@ -12,6 +12,17 @@ import type { BarNumberDisplay } from '@coderline/alphatab/model/RenderStyleshee
 import { Duration } from '@coderline/alphatab/model/Duration';
 
 /**
+ * Represents a custom Jianpu event for bar-level rendering.
+ * @json
+ * @public
+ */
+export class JianpuEvent {
+    public text: string = '';
+    public duration: Duration = Duration.Quarter;
+    public octaveShift: number = 0;
+}
+
+/**
  * The different pedal marker types.
  * @public
  */
@@ -261,6 +272,13 @@ export class Bar {
      * @json_ignore
      */
     public previousBar: Bar | null = null;
+
+    /**
+     * Gets or sets the custom Jianpu events for this bar.
+     * If this list is not empty, the NumberedBarRenderer will use these events
+     * instead of the beats in the voices.
+     */
+    public jianpuEvents: JianpuEvent[] = [];
 
     /**
      * Gets or sets the clef on this bar.

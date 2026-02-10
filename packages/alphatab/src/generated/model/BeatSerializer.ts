@@ -62,6 +62,8 @@ export class BeatSerializer {
         o.set("slap", obj.slap);
         o.set("tap", obj.tap);
         o.set("text", obj.text);
+        o.set("jianpudisplay", obj.jianpuDisplay);
+        o.set("jianpuoctaveshift", obj.jianpuOctaveShift);
         o.set("slashed", obj.slashed);
         o.set("deadslapped", obj.deadSlapped);
         o.set("brushtype", obj.brushType as number);
@@ -158,6 +160,12 @@ export class BeatSerializer {
                 return true;
             case "text":
                 obj.text = v as string | null;
+                return true;
+            case "jianpudisplay":
+                obj.jianpuDisplay = v as string | null;
+                return true;
+            case "jianpuoctaveshift":
+                obj.jianpuOctaveShift = v! as number;
                 return true;
             case "slashed":
                 obj.slashed = v! as boolean;
