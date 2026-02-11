@@ -200,6 +200,9 @@ export class BoundsLookup {
      * @param bounds The beat bounds to add.
      */
     public addBeat(bounds: BeatBounds): void {
+        if (!bounds.beat) {
+            return;
+        }
         if (!this._beatLookup.has(bounds.beat.id)) {
             this._beatLookup.set(bounds.beat.id, []);
         }

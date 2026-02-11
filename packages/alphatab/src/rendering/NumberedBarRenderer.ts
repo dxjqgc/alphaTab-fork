@@ -7,7 +7,7 @@ import { GraceType } from '@coderline/alphatab/model/GraceType';
 import { ModelUtils } from '@coderline/alphatab/model/ModelUtils';
 import { MusicFontSymbol } from '@coderline/alphatab/model/MusicFontSymbol';
 import { Note } from '@coderline/alphatab/model/Note';
-import type { Voice } from '@coderline/alphatab/model/Voice';
+import { Voice } from '@coderline/alphatab/model/Voice';
 import type { ICanvas } from '@coderline/alphatab/platform/ICanvas';
 import { BeatXPosition } from '@coderline/alphatab/rendering/BeatXPosition';
 import { BarLineGlyph } from '@coderline/alphatab/rendering/glyphs/BarLineGlyph';
@@ -36,6 +36,7 @@ export class NumberedBarRenderer extends LineBarRenderer {
 
     private _isOnlyNumbered: boolean;
     public shortestDuration = Duration.QuadrupleWhole;
+    private _jianpuBeats: Beat[] = [];
 
     get dotSpacing(): number {
         return this.smuflMetrics.glyphHeights.get(MusicFontSymbol.AugmentationDot)! * 2;
@@ -78,29 +79,89 @@ export class NumberedBarRenderer extends LineBarRenderer {
         return 0;
     }
 
+    public override doLayout(): void {
+        if (this.bar.jianpuEvents && this.bar.jianpuEvents.length > 0) {
+            this._jianpuBeats = this._generateJianpuBeats();
+            const originalVoices = this.bar.voices;
+            const originalShortestDuration = this.bar.shortestDuration;
+
+            const fakeVoice = new Voice();
+            fakeVoice.bar = this.bar;
+            fakeVoice.index = 0;
+            fakeVoice.beats = this._jianpuBeats;
+
+            for (const beat of this._jianpuBeats) {
+                beat.voice = fakeVoice;
+            }
+
+            this.bar.voices = [fakeVoice];
+
+            // update shortest duration for beaming rules
+            for (const beat of this._jianpuBeats) {
+                if (beat.duration > this.bar.shortestDuration) {
+                    this.bar.shortestDuration = beat.duration;
+                }
+            }
+
+            try {
+                super.doLayout();
+            } finally {
+                this.bar.voices = originalVoices;
+                this.bar.shortestDuration = originalShortestDuration;
+            }
+        } else {
+            super.doLayout();
+        }
+    }
+
+    private _generateJianpuBeats(): Beat[] {
+        const beats: Beat[] = [];
+        let currentTick = 0;
+        let index = 0;
+        // Create custom glyphs from JianpuEvents
+        for (const event of this.bar.jianpuEvents) {
+            // Create a fake beat
+            const beat = new Beat();
+            beat.index = index++;
+            if (this.bar.voices.length > 0) {
+                beat.voice = this.bar.voices[0];
+            }
+            beat.duration = event.duration;
+            beat.jianpuDisplay = event.text;
+            beat.jianpuOctaveShift = event.octaveShift;
+            beat.displayStart = currentTick;
+
+            const ticks = MidiUtils.toTicks(beat.duration);
+            beat.displayDuration = ticks;
+            beat.playbackDuration = ticks;
+            currentTick += ticks;
+
+            // We need at least one note for it to be considered non-empty/valid by some renderers
+            // and to anchor effects if any (though here we just want the number)
+            const note = new Note();
+            note.beat = beat;
+            beat.notes.push(note);
+            beat.minNote = note;
+            beat.maxNote = note;
+
+            beats.push(beat);
+        }
+        return beats;
+    }
+
     protected override createBeatGlyphs(): void {
         if (this.bar.jianpuEvents && this.bar.jianpuEvents.length > 0) {
-            // Create custom glyphs from JianpuEvents
-            for (const event of this.bar.jianpuEvents) {
-                // Create a fake beat
-                const beat = new Beat();
-                if (this.bar.voices.length > 0) {
+            for (const beat of this._jianpuBeats) {
+                // ensure the beat voice points to a valid voice for rendering
+                // if we don't have a fake voice injected currently
+                if (this.bar.voices.length > 0 && beat.voice !== this.bar.voices[0]) {
                     beat.voice = this.bar.voices[0];
                 }
-                beat.duration = event.duration;
-                beat.jianpuDisplay = event.text;
-                beat.jianpuOctaveShift = event.octaveShift;
-                
-                // We need at least one note for it to be considered non-empty/valid by some renderers
-                // and to anchor effects if any (though here we just want the number)
-                const note = new Note();
-                note.beat = beat;
-                beat.notes.push(note); 
-                
+
                 const container = new NumberedBeatContainerGlyph(beat);
                 this.addBeatGlyph(container);
             }
-            
+
             this.voiceContainer.doLayout();
 
             if (this.topEffects.isLinkedToPreviousRenderer || this.bottomEffects.isLinkedToPreviousRenderer) {

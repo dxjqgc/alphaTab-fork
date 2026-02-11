@@ -7,7 +7,8 @@ export {
     SustainPedalMarker,
     BarSubElement,
     BarStyle,
-    BarLineStyle
+    BarLineStyle,
+    JianpuEvent
 } from '@coderline/alphatab/model/Bar';
 export { BarreShape } from '@coderline/alphatab/model/BarreShape';
 export { Beat, BeatBeamingMode, BeatSubElement, BeatStyle } from '@coderline/alphatab/model/Beat';
