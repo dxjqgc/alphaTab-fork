@@ -37,6 +37,7 @@ export class NumberedBarRenderer extends LineBarRenderer {
     private _isOnlyNumbered: boolean;
     public shortestDuration = Duration.QuadrupleWhole;
     private _jianpuBeats: Beat[] = [];
+    private _maxJianpuBottom: number = -10000;
 
     get dotSpacing(): number {
         return this.smuflMetrics.glyphHeights.get(MusicFontSymbol.AugmentationDot)! * 2;
@@ -163,6 +164,17 @@ export class NumberedBarRenderer extends LineBarRenderer {
             }
 
             this.voiceContainer.doLayout();
+
+            this._maxJianpuBottom = -10000;
+            for (const beat of this._jianpuBeats) {
+                const container = this.voiceContainer.getBeatContainer(beat);
+                if (container) {
+                    const bottom = container.getBoundingBoxBottom();
+                    if (bottom > this._maxJianpuBottom) {
+                        this._maxJianpuBottom = bottom;
+                    }
+                }
+            }
 
             if (this.topEffects.isLinkedToPreviousRenderer || this.bottomEffects.isLinkedToPreviousRenderer) {
                 this.isLinkedToPrevious = true;
@@ -489,6 +501,17 @@ export class NumberedBarRenderer extends LineBarRenderer {
             return Math.min(info.startY, info.endY);
         } else {
             return Math.max(info.startY, info.endY);
+        }
+    }
+
+    public override ensureBeamDrawingInfo(h: BeamingHelper, direction: BeamDirection): void {
+        super.ensureBeamDrawingInfo(h, direction);
+        if (direction === BeamDirection.Down && this._maxJianpuBottom > -10000) {
+            const info = h.drawingInfos.get(direction);
+            if (info) {
+                info.startY = this._maxJianpuBottom;
+                info.endY = this._maxJianpuBottom;
+            }
         }
     }
 
