@@ -569,7 +569,8 @@ export class Environment {
         ]),
 
         //
-        // Numbered
+        // Numbered (Jianpu)
+        // 简谱歌词由 NumberedBarRenderer 直接创建 LyricsGlyph，不再通过通用 LyricsEffectInfo。
         new NumberedBarRendererFactory([
             { effect: new NumberedBarKeySignatureEffectInfo(), mode: EffectBandMode.OwnedTop, order: 1000 }
         ])

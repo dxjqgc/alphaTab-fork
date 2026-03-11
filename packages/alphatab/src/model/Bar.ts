@@ -20,6 +20,11 @@ export class JianpuEvent {
     public text: string = '';
     public duration: Duration = Duration.Quarter;
     public octaveShift: number = 0;
+    /**
+     * Optional lyric text bound to this Jianpu event.
+     * If set, this lyric will be rendered above the corresponding Jianpu symbol.
+     */
+    public lyric: string | null = null;
 }
 
 /**

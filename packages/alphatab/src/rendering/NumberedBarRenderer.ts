@@ -8,7 +8,9 @@ import { ModelUtils } from '@coderline/alphatab/model/ModelUtils';
 import { MusicFontSymbol } from '@coderline/alphatab/model/MusicFontSymbol';
 import { Note } from '@coderline/alphatab/model/Note';
 import { Voice } from '@coderline/alphatab/model/Voice';
+import { NotationElement } from '@coderline/alphatab/NotationSettings';
 import type { ICanvas } from '@coderline/alphatab/platform/ICanvas';
+import { TextAlign } from '@coderline/alphatab/platform/ICanvas';
 import { BeatXPosition } from '@coderline/alphatab/rendering/BeatXPosition';
 import { BarLineGlyph } from '@coderline/alphatab/rendering/glyphs/BarLineGlyph';
 import { BarNumberGlyph } from '@coderline/alphatab/rendering/glyphs/BarNumberGlyph';
@@ -16,6 +18,7 @@ import {
     NumberedDashBeatContainerGlyph,
     NumberedNoteBeatContainerGlyphBase
 } from '@coderline/alphatab/rendering/glyphs/NumberedDashBeatContainerGlyph';
+import { LyricsGlyph } from '@coderline/alphatab/rendering/glyphs/LyricsGlyph';
 import { ScoreTimeSignatureGlyph } from '@coderline/alphatab/rendering/glyphs/ScoreTimeSignatureGlyph';
 import { SpacingGlyph } from '@coderline/alphatab/rendering/glyphs/SpacingGlyph';
 import { LineBarRenderer } from '@coderline/alphatab/rendering/LineBarRenderer';
@@ -38,6 +41,7 @@ export class NumberedBarRenderer extends LineBarRenderer {
     public shortestDuration = Duration.QuadrupleWhole;
     private _jianpuBeats: Beat[] = [];
     private _maxJianpuBottom: number = -10000;
+    private _jianpuLyrics: { beat: Beat; glyph: LyricsGlyph }[] = [];
 
     get dotSpacing(): number {
         return this.smuflMetrics.glyphHeights.get(MusicFontSymbol.AugmentationDot)! * 2;
@@ -57,6 +61,19 @@ export class NumberedBarRenderer extends LineBarRenderer {
 
     public override get staffLineBarSubElement(): BarSubElement {
         return BarSubElement.NumberedStaffLine;
+    }
+
+    private _layoutJianpuLyrics(): void {
+        if (this._jianpuLyrics.length === 0) {
+            return;
+        }
+        const padding = this.settings.display.lyricLinesPaddingBetween;
+        const y = this._maxJianpuBottom + padding;
+        for (const { beat, glyph } of this._jianpuLyrics) {
+            // 绝对 X 坐标：对应 Jianpu 数字的中线
+            glyph.x = this.getBeatX(beat, BeatXPosition.MiddleNotes);
+            glyph.y = y;
+        }
     }
 
     public constructor(renderer: ScoreRenderer, bar: Bar) {
@@ -128,8 +145,17 @@ export class NumberedBarRenderer extends LineBarRenderer {
                 beat.voice = this.bar.voices[0];
             }
             beat.duration = event.duration;
-            beat.jianpuDisplay = event.text;
-            beat.jianpuOctaveShift = event.octaveShift;
+            // bind Jianpu display information from the event
+            // (used later by the numbered glyphs)
+            // lyrics are also propagated so the generic lyrics effect
+            // can render them aligned to this fake beat.
+            if (event.text) {
+                // use beat text annotation to carry the custom Jianpu text
+                beat.text = event.text;
+            }
+            if (event.lyric) {
+                beat.lyrics = [event.lyric];
+            }
             beat.displayStart = currentTick;
 
             const ticks = MidiUtils.toTicks(beat.duration);
@@ -152,6 +178,7 @@ export class NumberedBarRenderer extends LineBarRenderer {
 
     protected override createBeatGlyphs(): void {
         if (this.bar.jianpuEvents && this.bar.jianpuEvents.length > 0) {
+            this._jianpuLyrics = [];
             for (const beat of this._jianpuBeats) {
                 // ensure the beat voice points to a valid voice for rendering
                 // if we don't have a fake voice injected currently
@@ -173,6 +200,21 @@ export class NumberedBarRenderer extends LineBarRenderer {
                     if (bottom > this._maxJianpuBottom) {
                         this._maxJianpuBottom = bottom;
                     }
+                }
+            }
+
+            // 为每个带 lyric 的 JianpuEvent 创建歌词 glyph（具体坐标在绘制前根据最终布局再计算）
+            const lyricsFont = this.resources.elementFonts.get(NotationElement.EffectLyrics);
+            if (lyricsFont) {
+                for (let i = 0; i < this._jianpuBeats.length && i < this.bar.jianpuEvents.length; i++) {
+                    const event = this.bar.jianpuEvents[i];
+                    if (!event || !event.lyric) {
+                        continue;
+                    }
+                    const beat = this._jianpuBeats[i];
+                    const lyricGlyph = new LyricsGlyph(0, 0, [event.lyric], lyricsFont, TextAlign.Center);
+                    this._jianpuLyrics.push({ beat, glyph: lyricGlyph });
+                    this.addPreBeatGlyph(lyricGlyph);
                 }
             }
 
@@ -298,6 +340,12 @@ export class NumberedBarRenderer extends LineBarRenderer {
             return;
         }
         this.calculateBeamingOverflows(rendererTop, rendererBottom);
+    }
+
+    protected override paintContent(cx: number, cy: number, canvas: ICanvas): void {
+        // 在真正绘制前，根据最终布局更新 Jianpu 歌词的位置
+        this._layoutJianpuLyrics();
+        super.paintContent(cx, cy, canvas);
     }
 
     public getNoteLine(_note: Note) {
