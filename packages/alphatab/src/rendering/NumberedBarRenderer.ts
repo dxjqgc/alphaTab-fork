@@ -64,7 +64,7 @@ export class NumberedBarRenderer extends LineBarRenderer {
     }
 
     private _layoutJianpuLyrics(): void {
-        if (this._jianpuLyrics.length === 0) {
+        if (this._jianpuLyrics.length === 0 || this._maxJianpuBottom <= -10000) {
             return;
         }
         const padding = this.settings.display.lyricLinesPaddingBetween;
@@ -213,8 +213,9 @@ export class NumberedBarRenderer extends LineBarRenderer {
                     }
                     const beat = this._jianpuBeats[i];
                     const lyricGlyph = new LyricsGlyph(0, 0, [event.lyric], lyricsFont, TextAlign.Center);
+                    lyricGlyph.renderer = this;
+                    lyricGlyph.doLayout();
                     this._jianpuLyrics.push({ beat, glyph: lyricGlyph });
-                    this.addPreBeatGlyph(lyricGlyph);
                 }
             }
 
@@ -340,12 +341,32 @@ export class NumberedBarRenderer extends LineBarRenderer {
             return;
         }
         this.calculateBeamingOverflows(rendererTop, rendererBottom);
+
+        this._layoutJianpuLyrics();
+        for (const { glyph } of this._jianpuLyrics) {
+            const topY = glyph.getBoundingBoxTop();
+            if (topY < rendererTop) {
+                this.registerOverflowTop(rendererTop - topY);
+            }
+
+            const bottomY = glyph.getBoundingBoxBottom();
+            if (bottomY > rendererBottom) {
+                this.registerOverflowBottom(bottomY - rendererBottom);
+            }
+        }
     }
 
     protected override paintContent(cx: number, cy: number, canvas: ICanvas): void {
-        // 在真正绘制前，根据最终布局更新 Jianpu 歌词的位置
-        this._layoutJianpuLyrics();
         super.paintContent(cx, cy, canvas);
+
+        // Draw Jianpu lyrics last so they stay below note duration bars and are not overpainted.
+        this._layoutJianpuLyrics();
+        if (this._jianpuLyrics.length > 0) {
+            canvas.color = this.resources.mainGlyphColor;
+            for (const { glyph } of this._jianpuLyrics) {
+                glyph.paint(cx + this.x, cy + this.y, canvas);
+            }
+        }
     }
 
     public getNoteLine(_note: Note) {
@@ -573,3 +594,4 @@ export class NumberedBarRenderer extends LineBarRenderer {
         super.paintTuplets(cx, cy, canvas, beatElement, true);
     }
 }
+
