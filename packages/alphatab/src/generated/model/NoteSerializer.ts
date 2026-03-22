@@ -51,6 +51,7 @@ export class NoteSerializer {
         o.set("tone", obj.tone);
         o.set("percussionarticulation", obj.percussionArticulation);
         o.set("isvisible", obj.isVisible);
+        o.set("tabdisplaytext", obj.tabDisplayText);
         o.set("islefthandtapped", obj.isLeftHandTapped);
         o.set("ishammerpullorigin", obj.isHammerPullOrigin);
         o.set("isslurdestination", obj.isSlurDestination);
@@ -126,6 +127,9 @@ export class NoteSerializer {
                 return true;
             case "isvisible":
                 obj.isVisible = v! as boolean;
+                return true;
+            case "tabdisplaytext":
+                obj.tabDisplayText = v! as string;
                 return true;
             case "islefthandtapped":
                 obj.isLeftHandTapped = v! as boolean;

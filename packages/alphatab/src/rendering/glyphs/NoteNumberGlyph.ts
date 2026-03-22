@@ -47,7 +47,9 @@ export class NoteNumberGlyph extends Glyph {
         if (n.harmonicType === HarmonicType.Natural && n.harmonicValue !== 0) {
             fret = n.harmonicValue - n.beat.voice.bar.staff.transpositionPitch;
         }
-        if (!n.isTieDestination) {
+        if (n.tabDisplayText) {
+            this._noteString = n.tabDisplayText;
+        } else if (!n.isTieDestination) {
             this._noteString = n.isDead ? 'x' : fret.toString();
             if (n.isGhost) {
                 this._noteString = `(${this._noteString})`;

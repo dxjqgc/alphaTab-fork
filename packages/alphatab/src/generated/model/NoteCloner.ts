@@ -29,6 +29,7 @@ export class NoteCloner {
         clone.tone = original.tone;
         clone.percussionArticulation = original.percussionArticulation;
         clone.isVisible = original.isVisible;
+        clone.tabDisplayText = original.tabDisplayText;
         clone.isLeftHandTapped = original.isLeftHandTapped;
         clone.isHammerPullOrigin = original.isHammerPullOrigin;
         clone.isSlurDestination = original.isSlurDestination;

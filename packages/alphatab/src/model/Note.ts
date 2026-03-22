@@ -364,6 +364,13 @@ export class Note {
     public isVisible: boolean = true;
 
     /**
+     * Gets or sets a custom text shown for this note on the TAB staff.
+     * If this value is non-empty, it overrides the default fret number rendering.
+     * This does not affect pitch calculation or playback.
+     */
+    public tabDisplayText: string = '';
+
+    /**
      * Gets a value indicating whether the note is left hand tapped.
      */
     public isLeftHandTapped: boolean = false;
