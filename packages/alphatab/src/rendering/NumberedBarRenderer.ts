@@ -179,6 +179,7 @@ export class NumberedBarRenderer extends LineBarRenderer {
     protected override createBeatGlyphs(): void {
         if (this.bar.jianpuEvents && this.bar.jianpuEvents.length > 0) {
             this._jianpuLyrics = [];
+            const absoluteStart = this.bar.masterBar.start;
             for (const beat of this._jianpuBeats) {
                 // ensure the beat voice points to a valid voice for rendering
                 // if we don't have a fake voice injected currently
@@ -188,6 +189,33 @@ export class NumberedBarRenderer extends LineBarRenderer {
 
                 const container = new NumberedBeatContainerGlyph(beat);
                 this.addBeatGlyph(container);
+
+                // create extension dashes for durations longer than a quarter note
+                // (e.g. half note gets one dash, whole note gets three dashes)
+                if (beat.duration < Duration.Quarter) {
+                    const endTick = beat.displayStart + beat.displayDuration;
+                    let dashTick = beat.displayStart + MidiUtils.QuarterTime;
+                    while (dashTick < endTick) {
+                        const isFullTick = endTick - dashTick >= MidiUtils.QuarterTime;
+                        if (isFullTick) {
+                            const dash = new NumberedDashBeatContainerGlyph(beat.voice?.index ?? 0, absoluteStart + dashTick);
+                            this.addBeatGlyph(dash);
+                            container.addDash(dash);
+                        }
+                        // keep parity with regular numbered renderer for dotted split edge-case
+                        else if (beat.duration === Duration.Half && beat.dots > 1) {
+                            const remainingTickNumber = new NumberedNoteBeatContainerGlyphBase(
+                                beat,
+                                absoluteStart + dashTick,
+                                endTick - dashTick
+                            );
+                            this.addBeatGlyph(remainingTickNumber);
+                            container.addNotes(remainingTickNumber);
+                        }
+
+                        dashTick += MidiUtils.QuarterTime;
+                    }
+                }
             }
 
             this.voiceContainer.doLayout();
