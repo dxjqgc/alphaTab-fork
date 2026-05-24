@@ -2378,6 +2378,11 @@ export class AlphaTabApiBase<TSettings> {
         shouldScroll: boolean,
         cursorSpeed: number
     ) {
+        // renderScore 会在 postRenderFinished 中清空 _currentBeat，晚到的异步回调需忽略
+        if (!this._currentBeat || this._currentBeat !== lookupResult) {
+            return;
+        }
+
         const beat = lookupResult.beat;
         const nextBeat = lookupResult.nextBeat?.beat;
         let duration = lookupResult.duration;
@@ -2418,9 +2423,9 @@ export class AlphaTabApiBase<TSettings> {
         let startBeatX = beatBoundings.onNotesX;
         if (beatCursor) {
             const animationWidth = nextBeatX - beatBoundings.onNotesX;
-            const relativePosition = this._previousTick - this._currentBeat!.start;
+            const relativePosition = this._previousTick - lookupResult.start;
             const ratioPosition =
-                this._currentBeat!.tickDuration > 0 ? relativePosition / this._currentBeat!.tickDuration : 0;
+                lookupResult.tickDuration > 0 ? relativePosition / lookupResult.tickDuration : 0;
             startBeatX = beatBoundings.onNotesX + animationWidth * ratioPosition;
             duration -= duration * ratioPosition;
 
