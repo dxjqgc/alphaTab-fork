@@ -233,9 +233,15 @@ export class NumberedBeatGlyph extends BeatOnNoteGlyphBase {
             if (bar.jianpuEvents && bar.jianpuEvents.length > 0) {
                 const event = bar.jianpuEvents[this.container.beat.index];
                 if (event) {
-                    if (event.text && event.text.length > 0) {
-                        numberWithinOctave = event.text;
+                    if (!event.text || event.text.length === 0) {
+                        // empty text: reserve duration but do not draw a symbol
+                        super.doLayout();
+                        this.onTimeX = this.width / 2;
+                        this.middleX = this.onTimeX;
+                        this.stemX = this.middleX;
+                        return;
                     }
+                    numberWithinOctave = event.text;
                     octaveDots = event.octaveShift;
                 }
             } else if (this.container.beat.notes.length > 0) {
@@ -294,7 +300,7 @@ export class NumberedBeatGlyph extends BeatOnNoteGlyphBase {
 
             //
             // Note dots
-            if (this.container.beat.dots > 0 && this.container.beat.duration >= Duration.Quarter) {
+            if (this.container.beat.dots > 0) {
                 for (let i: number = 0; i < this.container.beat.dots; i++) {
                     const dot = new AugmentationDotGlyph(0, glyphY);
                     dot.renderer = this.renderer;

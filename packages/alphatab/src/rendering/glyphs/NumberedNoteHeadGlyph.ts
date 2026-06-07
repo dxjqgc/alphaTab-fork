@@ -1,4 +1,5 @@
 import { type Beat, BeatSubElement } from '@coderline/alphatab/model/Beat';
+import { ModelUtils } from '@coderline/alphatab/model/ModelUtils';
 import { MusicFontSymbol } from '@coderline/alphatab/model/MusicFontSymbol';
 import { NoteSubElement } from '@coderline/alphatab/model/Note';
 import { CanvasHelper, type ICanvas, TextAlign, TextBaseline } from '@coderline/alphatab/platform/ICanvas';
@@ -42,6 +43,25 @@ export class NumberedNoteHeadGlyph extends Glyph {
         }
 
         return this.y + y;
+    }
+
+    /** 时值线锚点：数字底边，不含下方八度点 */
+    public getBeamingAnchorBottom(): number {
+        return this.y + this.height / 2;
+    }
+
+    /** 数字底边到最低减时线下沿的垂直距离（与 NumberedBarRenderer 布局一致） */
+    private _durationBarReserve(): number {
+        const barCount = ModelUtils.getIndex(this._beat.duration) - 2;
+        if (barCount <= 0) {
+            return 0;
+        }
+        const smufl = this.renderer.smuflMetrics;
+        const minGap = smufl.numberedBarRendererBarSpacing;
+        const barSpacing = -(smufl.numberedBarRendererBarSpacing + smufl.numberedBarRendererBarSize);
+        const barSize = -smufl.numberedBarRendererBarSize;
+        const closestOffset = (barCount - 1) * barSpacing + barSize;
+        return minGap - closestOffset;
     }
 
     public override paint(cx: number, cy: number, canvas: ICanvas): void {
@@ -98,7 +118,9 @@ export class NumberedNoteHeadGlyph extends Glyph {
                 // one for the padding
                 dotHeight +
                 // align the dots
-                res.engravingSettings.glyphTop.get(MusicFontSymbol.AugmentationDot)!;
+                res.engravingSettings.glyphTop.get(MusicFontSymbol.AugmentationDot)! +
+                // keep lower octave dots below all duration underlines
+                this._durationBarReserve();
         }
         this._octaveDotHeight = dotHeight;
     }

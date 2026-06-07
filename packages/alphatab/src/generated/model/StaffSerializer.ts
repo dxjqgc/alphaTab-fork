@@ -39,6 +39,7 @@ export class StaffSerializer {
         o.set("stringtuning", TuningSerializer.toJson(obj.stringTuning));
         o.set("showslash", obj.showSlash);
         o.set("shownumbered", obj.showNumbered);
+        o.set("jianpueventsonly", obj.jianpuEventsOnly);
         o.set("showtablature", obj.showTablature);
         o.set("showstandardnotation", obj.showStandardNotation);
         o.set("ispercussion", obj.isPercussion);
@@ -80,6 +81,9 @@ export class StaffSerializer {
                 return true;
             case "shownumbered":
                 obj.showNumbered = v! as boolean;
+                return true;
+            case "jianpueventsonly":
+                obj.jianpuEventsOnly = v! as boolean;
                 return true;
             case "showtablature":
                 obj.showTablature = v! as boolean;

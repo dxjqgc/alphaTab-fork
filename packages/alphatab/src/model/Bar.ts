@@ -17,9 +17,17 @@ import { Duration } from '@coderline/alphatab/model/Duration';
  * @public
  */
 export class JianpuEvent {
+    /**
+     * The Jianpu number or symbol to display (e.g. "1", "2", "0" for rest).
+     * When empty, no symbol is drawn at this position but the duration is still reserved.
+     */
     public text: string = '';
     public duration: Duration = Duration.Quarter;
     public octaveShift: number = 0;
+    /**
+     * Augmentation dots applied to this event (e.g. 1 = dotted note).
+     */
+    public dots: number = 0;
     /**
      * Optional lyric text bound to this Jianpu event.
      * If set, this lyric will be rendered above the corresponding Jianpu symbol.
@@ -280,8 +288,10 @@ export class Bar {
 
     /**
      * Gets or sets the custom Jianpu events for this bar.
-     * If this list is not empty, the NumberedBarRenderer will use these events
-     * instead of the beats in the voices.
+     * When the staff {@link Staff.usesJianpuEventsOnly} is active, numbered notation
+     * is rendered only from these events. If this list is empty on a bar, no Jianpu
+     * symbols are drawn for that bar. Otherwise, a non-empty list replaces the
+     * beats in the voices for that bar only.
      */
     public jianpuEvents: JianpuEvent[] = [];
 

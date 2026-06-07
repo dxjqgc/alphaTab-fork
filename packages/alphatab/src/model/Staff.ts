@@ -91,6 +91,28 @@ export class Staff {
     public showNumbered: boolean = false;
 
     /**
+     * When true, the numbered notation staff renders only from {@link Bar.jianpuEvents}
+     * and never converts notes from voices/tablature into Jianpu symbols.
+     * This is also enabled automatically when any bar on this staff has jianpu events.
+     */
+    public jianpuEventsOnly: boolean = false;
+
+    /**
+     * Gets whether this staff uses jianpu events as the sole source for numbered notation.
+     */
+    public get usesJianpuEventsOnly(): boolean {
+        if (this.jianpuEventsOnly) {
+            return true;
+        }
+        for (const bar of this.bars) {
+            if (bar.jianpuEvents.length > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Gets or sets whether the tabs are shown.
      */
     public showTablature: boolean = true;

@@ -24,6 +24,7 @@ export class JianpuEventSerializer {
         o.set("text", obj.text);
         o.set("duration", obj.duration as number);
         o.set("octaveshift", obj.octaveShift);
+        o.set("dots", obj.dots);
         o.set("lyric", obj.lyric);
         return o;
     }
@@ -37,6 +38,9 @@ export class JianpuEventSerializer {
                 return true;
             case "octaveshift":
                 obj.octaveShift = v! as number;
+                return true;
+            case "dots":
+                obj.dots = v! as number;
                 return true;
             case "lyric":
                 obj.lyric = v as string | null;
