@@ -1,7 +1,7 @@
 import { EngravingSettings } from '@coderline/alphatab/EngravingSettings';
 import { MidiUtils } from '@coderline/alphatab/midi/MidiUtils';
 import { type Bar, BarSubElement } from '@coderline/alphatab/model/Bar';
-import { Beat, BeatSubElement } from '@coderline/alphatab/model/Beat';
+import { Beat, BeatBeamingMode, BeatSubElement } from '@coderline/alphatab/model/Beat';
 import { Duration } from '@coderline/alphatab/model/Duration';
 import { GraceType } from '@coderline/alphatab/model/GraceType';
 import { ModelUtils } from '@coderline/alphatab/model/ModelUtils';
@@ -12,6 +12,7 @@ import { NotationElement } from '@coderline/alphatab/NotationSettings';
 import type { ICanvas } from '@coderline/alphatab/platform/ICanvas';
 import { TextAlign } from '@coderline/alphatab/platform/ICanvas';
 import { BeatXPosition } from '@coderline/alphatab/rendering/BeatXPosition';
+import type { BeatContainerGlyphBase } from '@coderline/alphatab/rendering/glyphs/BeatContainerGlyph';
 import { BarLineGlyph } from '@coderline/alphatab/rendering/glyphs/BarLineGlyph';
 import { BarNumberGlyph } from '@coderline/alphatab/rendering/glyphs/BarNumberGlyph';
 import {
@@ -28,6 +29,12 @@ import type { ScoreRenderer } from '@coderline/alphatab/rendering/ScoreRenderer'
 import { BeamDirection } from '@coderline/alphatab/rendering/utils/BeamDirection';
 import type { BeamingHelper, BeamingHelperDrawInfo } from '@coderline/alphatab/rendering/utils/BeamingHelper';
 import { ElementStyleHelper } from '@coderline/alphatab/rendering/utils/ElementStyleHelper';
+import { buildJianpuDrawNotes, beatValueFromDenominator } from '@coderline/alphatab/rendering/jianpu/simpleNotation/eventAdapter';
+import { groupNotesForBeam } from '@coderline/alphatab/rendering/jianpu/simpleNotation/groupNotesForBeam';
+import { drawUnderlineGroup } from '@coderline/alphatab/rendering/jianpu/simpleNotation/drawUnderlines';
+import { drawSingleTieLine } from '@coderline/alphatab/rendering/jianpu/simpleNotation/drawTieLine';
+import type { JianpuEventLayoutCoords } from '@coderline/alphatab/rendering/jianpu/simpleNotation/eventAdapter';
+import type { JianpuDrawNote } from '@coderline/alphatab/rendering/jianpu/simpleNotation/types';
 
 /**
  * This BarRenderer renders a bar using (Jianpu) Numbered Music Notation
@@ -69,9 +76,20 @@ export class NumberedBarRenderer extends LineBarRenderer {
         return this.bar.staff.usesJianpuEventsOnly;
     }
 
-    private _jianpuEventShowsSymbol(beatIndex: number): boolean {
+    /** 是否在谱面绘制简谱符号（含休止符 0） */
+    private _jianpuEventHasGlyph(beatIndex: number): boolean {
         const event = this.bar.jianpuEvents[beatIndex];
         return !!event?.text && event.text.length > 0;
+    }
+
+    /** 是否参与减时线分组/绘制（休止符除外） */
+    private _jianpuEventIsBeamableNote(beatIndex: number): boolean {
+        const event = this.bar.jianpuEvents[beatIndex];
+        return !!event?.text && event.text.length > 0 && event.text !== '0';
+    }
+
+    private _jianpuEventShowsSymbol(beatIndex: number): boolean {
+        return this._jianpuEventIsBeamableNote(beatIndex);
     }
 
     private _layoutJianpuLyrics(): void {
@@ -116,6 +134,10 @@ export class NumberedBarRenderer extends LineBarRenderer {
         }
 
         if (this.bar.jianpuEvents && this.bar.jianpuEvents.length > 0) {
+            if (this.bar.index === 0) {
+                this.bar.staff.jianpuPendingTieDrawX = -1;
+                this.bar.staff.jianpuPendingTieDrawY = -1;
+            }
             this._jianpuBeats = this._generateJianpuBeats();
             const originalVoices = this.bar.voices;
             const originalShortestDuration = this.bar.shortestDuration;
@@ -153,6 +175,7 @@ export class NumberedBarRenderer extends LineBarRenderer {
         const beats: Beat[] = [];
         let currentTick = 0;
         let index = 0;
+
         // Create custom glyphs from JianpuEvents
         for (const event of this.bar.jianpuEvents) {
             // Create a fake beat
@@ -163,6 +186,9 @@ export class NumberedBarRenderer extends LineBarRenderer {
             }
             beat.duration = event.duration;
             beat.dots = event.dots;
+            if (event.splitBeamAfter) {
+                beat.beamingMode = BeatBeamingMode.ForceSplitToNext;
+            }
             // bind Jianpu display information from the event
             // (used later by the numbered glyphs)
             // lyrics are also propagated so the generic lyrics effect
@@ -172,18 +198,21 @@ export class NumberedBarRenderer extends LineBarRenderer {
                 beat.text = event.text;
             }
             if (event.lyric) {
-                beat.lyrics = [event.lyric];
+                beat.lyrics = event.lyric.includes('\n') ? event.lyric.split('\n') : [event.lyric];
             }
             beat.displayStart = currentTick;
             // beaming 分组依赖 playbackStart；未设置时全为 0，减时线会错误跨拍连接
             beat.playbackStart = currentTick;
 
-            const ticks = MidiUtils.toTicks(beat.duration);
+            let ticks = MidiUtils.toTicks(beat.duration);
+            for (let dot = 0; dot < beat.dots; dot++) {
+                ticks = MidiUtils.applyDot(ticks, false);
+            }
             beat.displayDuration = ticks;
             beat.playbackDuration = ticks;
             currentTick += ticks;
 
-            if (this._jianpuEventShowsSymbol(beat.index)) {
+            if (this._jianpuEventHasGlyph(beat.index)) {
                 // We need at least one note for it to be considered non-empty/valid by some renderers
                 // and to anchor effects if any (though here we just want the number)
                 const note = new Note();
@@ -191,12 +220,15 @@ export class NumberedBarRenderer extends LineBarRenderer {
                 beat.notes.push(note);
                 beat.minNote = note;
                 beat.maxNote = note;
+
+                // 连音线仅由 _paintSimpleNotationTieLines 绘制，不在 fake Note 上挂 tieOrigin
             } else {
                 beat.isEmpty = true;
             }
 
             beats.push(beat);
         }
+
         return beats;
     }
 
@@ -227,7 +259,7 @@ export class NumberedBarRenderer extends LineBarRenderer {
 
                 // create extension dashes for durations longer than a quarter note
                 // (e.g. half note gets one dash, whole note gets three dashes)
-                if (this._jianpuEventShowsSymbol(beat.index) && beat.duration < Duration.Quarter) {
+                if (this._jianpuEventHasGlyph(beat.index) && beat.duration < Duration.Quarter) {
                     const endTick = beat.displayStart + beat.displayDuration;
                     let dashTick = beat.displayStart + MidiUtils.QuarterTime;
                     while (dashTick < endTick) {
@@ -264,7 +296,8 @@ export class NumberedBarRenderer extends LineBarRenderer {
                     if (bottom > this._maxJianpuBottom) {
                         this._maxJianpuBottom = bottom;
                     }
-                    const onNotes = container.onNotes as NumberedBeatGlyph;
+                    const numberedContainer = container as NumberedBeatContainerGlyph;
+                    const onNotes = numberedContainer.onNotes as NumberedBeatGlyph;
                     if (onNotes.noteHeads) {
                         const beamingBottom = container.y + onNotes.y + onNotes.noteHeads.getBeamingAnchorBottom();
                         if (beamingBottom > this._maxJianpuBeamingBottom) {
@@ -286,7 +319,8 @@ export class NumberedBarRenderer extends LineBarRenderer {
                         continue;
                     }
                     const beat = this._jianpuBeats[i];
-                    const lyricGlyph = new LyricsGlyph(0, 0, [event.lyric], lyricsFont, TextAlign.Center);
+                    const lyricLines = event.lyric.includes('\n') ? event.lyric.split('\n') : [event.lyric];
+                    const lyricGlyph = new LyricsGlyph(0, 0, lyricLines, lyricsFont, TextAlign.Center);
                     lyricGlyph.renderer = this;
                     lyricGlyph.doLayout();
                     this._jianpuLyrics.push({ beat, glyph: lyricGlyph });
@@ -324,6 +358,9 @@ export class NumberedBarRenderer extends LineBarRenderer {
         h: BeamingHelper,
         flagsElement: BeatSubElement
     ): void {
+        if (this._staffUsesJianpuEventsOnly() && this.bar.jianpuEvents.length > 0) {
+            return;
+        }
         this.paintBar(cx, cy, canvas, h, flagsElement);
     }
 
@@ -334,6 +371,9 @@ export class NumberedBarRenderer extends LineBarRenderer {
         h: BeamingHelper,
         flagsElement: BeatSubElement
     ): void {
+        if (this._staffUsesJianpuEventsOnly() && this.bar.jianpuEvents.length > 0) {
+            return;
+        }
         if (h.beats.length === 0 || h.graceType !== GraceType.None) {
             return;
         }
@@ -436,6 +476,11 @@ export class NumberedBarRenderer extends LineBarRenderer {
 
     protected override paintContent(cx: number, cy: number, canvas: ICanvas): void {
         super.paintContent(cx, cy, canvas);
+
+        if (this._staffUsesJianpuEventsOnly() && this.bar.jianpuEvents.length > 0) {
+            this._paintSimpleNotationTieLines(cx, cy, canvas);
+            this._paintSimpleNotationUnderlines(cx, cy, canvas, BeatSubElement.NumberedDuration);
+        }
 
         // Draw Jianpu lyrics last so they stay below note duration bars and are not overpainted.
         this._layoutJianpuLyrics();
@@ -631,9 +676,234 @@ export class NumberedBarRenderer extends LineBarRenderer {
         flagsElement: BeatSubElement,
         beamsElement: BeatSubElement
     ): void {
+        if (this._staffUsesJianpuEventsOnly() && this.bar.jianpuEvents.length > 0) {
+            return;
+        }
         if (h.voice?.index === 0) {
             super.paintBeamHelper(cx, cy, canvas, h, flagsElement, beamsElement);
         }
+    }
+
+    /**
+     * simple-notation 减时线：groupNotesForBeam + drawUnderlineGroup（渲染期分组）。
+     */
+    private _paintSimpleNotationUnderlines(cx: number, cy: number, canvas: ICanvas, flagsElement: BeatSubElement): void {
+        const drawNotes = this._collectJianpuDrawNotes();
+        if (drawNotes.length === 0) {
+            return;
+        }
+
+        const denom = this.bar.masterBar.timeSignatureDenominator;
+        const beatValue = beatValueFromDenominator(denom);
+        const groups = groupNotesForBeam(drawNotes, beatValue);
+        const baseY = cy + this.y + this._simpleNotationUnderlineBaseY();
+
+        const styleBeat = this._jianpuBeats[0];
+        if (styleBeat) {
+            using _ = ElementStyleHelper.beat(canvas, flagsElement, styleBeat);
+        }
+
+        for (const group of groups) {
+            const underlineCount = Math.max(0, ...group.map(n => n.underlineCount ?? 0));
+            drawUnderlineGroup(canvas, cx + this.x, baseY, group, underlineCount);
+        }
+    }
+
+    /** 弧顶连音线：bar.jianpuTiePairs + event 标志 + 跨小节 pending */
+    private _paintSimpleNotationTieLines(cx: number, cy: number, canvas: ICanvas): void {
+        const layouts = this._collectJianpuEventLayouts(true);
+        const drawNotes = buildJianpuDrawNotes(
+            this.bar.jianpuEvents,
+            layouts,
+            this.bar.masterBar.timeSignatureDenominator
+        );
+        if (drawNotes.length === 0) {
+            this.bar.staff.jianpuPendingTieDrawX = -1;
+            this.bar.staff.jianpuPendingTieDrawY = -1;
+            return;
+        }
+
+        const absCx = cx + this.x;
+        const absCy = cy + this.y;
+        const tieYOffset = -10;
+
+        const layoutByEventIndex = new Map<number, JianpuDrawNote>();
+        for (const note of drawNotes) {
+            layoutByEventIndex.set(note.eventIndex, note);
+        }
+
+        const drawTieBetweenNotes = (from: JianpuDrawNote, to: JianpuDrawNote) => {
+            const x1 = absCx + from.centerX;
+            const y1 = absCy + from.centerY + tieYOffset;
+            const x2 = absCx + to.centerX;
+            const y2 = absCy + to.centerY + tieYOffset;
+            drawSingleTieLine(canvas, x1, y1, x2, y2, Math.abs(x2 - x1));
+        };
+
+        canvas.color = this.resources.mainGlyphColor;
+
+        const drawnPairs = new Set<string>();
+        const tryDrawTiePair = (origin: number, dest: number) => {
+            if (origin < 0 || dest <= origin) {
+                return;
+            }
+            const key = `${origin}:${dest}`;
+            if (drawnPairs.has(key)) {
+                return;
+            }
+            const fromNote = layoutByEventIndex.get(origin);
+            const toNote = layoutByEventIndex.get(dest);
+            if (fromNote && toNote && !fromNote.isRest && !toNote.isRest) {
+                drawTieBetweenNotes(fromNote, toNote);
+                drawnPairs.add(key);
+            }
+        };
+
+        let pendingX = this.bar.staff.jianpuPendingTieDrawX;
+        let pendingY = this.bar.staff.jianpuPendingTieDrawY;
+        const crossDest = this.bar.jianpuCrossBarTieDestIndex;
+        if (crossDest != null && pendingX >= 0 && pendingY >= 0) {
+            const destNote = layoutByEventIndex.get(crossDest);
+            if (destNote && !destNote.isRest) {
+                const x1 = pendingX;
+                const y1 = pendingY + tieYOffset;
+                const x2 = absCx + destNote.centerX;
+                const y2 = absCy + destNote.centerY + tieYOffset;
+                drawSingleTieLine(canvas, x1, y1, x2, y2, Math.abs(x2 - x1));
+            }
+            pendingX = -1;
+            pendingY = -1;
+        }
+
+        const events = this.bar.jianpuEvents;
+        for (const { origin, dest } of this.bar.jianpuTiePairs ?? []) {
+            tryDrawTiePair(origin, dest);
+        }
+        for (let i = 0; i < events.length - 1; i++) {
+            const fromEvent = events[i];
+            const toEvent = events[i + 1];
+            if (fromEvent?.tieToNext && toEvent?.tiedFromPrev) {
+                tryDrawTiePair(i, i + 1);
+            }
+        }
+
+        const pendingOrigin = this.bar.jianpuPendingTieOriginIndex;
+        if (pendingOrigin != null) {
+            const originNote = layoutByEventIndex.get(pendingOrigin);
+            if (originNote && !originNote.isRest) {
+                this.bar.staff.jianpuPendingTieDrawX = absCx + originNote.centerX;
+                this.bar.staff.jianpuPendingTieDrawY = absCy + originNote.centerY;
+            } else {
+                this.bar.staff.jianpuPendingTieDrawX = -1;
+                this.bar.staff.jianpuPendingTieDrawY = -1;
+            }
+        } else {
+            this.bar.staff.jianpuPendingTieDrawX = -1;
+            this.bar.staff.jianpuPendingTieDrawY = -1;
+        }
+    }
+
+    private _collectJianpuDrawNotes(): JianpuDrawNote[] {
+        const layouts = this._collectJianpuEventLayouts(true);
+        if (layouts.length === 0) {
+            return [];
+        }
+        return buildJianpuDrawNotes(
+            this.bar.jianpuEvents,
+            layouts,
+            this.bar.masterBar.timeSignatureDenominator
+        );
+    }
+
+    private _collectJianpuEventLayouts(includeAllEvents: boolean = false): JianpuEventLayoutCoords[] {
+        const eventCount = Math.min(this._jianpuBeats.length, this.bar.jianpuEvents.length);
+        const layouts: JianpuEventLayoutCoords[] = [];
+
+        for (let i = 0; i < eventCount; i++) {
+            if (!includeAllEvents && !this._jianpuEventHasGlyph(i)) {
+                continue;
+            }
+
+            const beat = this._jianpuBeats[i]!;
+            const preX = this._jianpuEventLineX(i, 'pre');
+            const postX = this._jianpuEventLineX(i, 'post');
+            const container = this._getBeatContainerForEventIndex(i);
+            let centerY = this.getLineY(0);
+            if (container) {
+                const numberedContainer = container as NumberedBeatContainerGlyph;
+                const onNotes = numberedContainer.onNotes as NumberedBeatGlyph;
+                if (onNotes.noteHeads) {
+                    centerY = container.y + onNotes.y + onNotes.noteHeads.y;
+                }
+            }
+
+            layouts.push({
+                eventIndex: i,
+                preX,
+                postX,
+                centerX: (preX + postX) / 2,
+                width: Math.max(0, postX - preX),
+                centerY,
+                playbackStart: beat.playbackStart
+            });
+        }
+
+        return layouts;
+    }
+
+    private _simpleNotationUnderlineBaseY(): number {
+        const minGap = this.smuflMetrics.numberedBarRendererBarSpacing;
+        return this._maxJianpuBeamingBottom + minGap;
+    }
+
+    private _getBeatContainerForEventIndex(eventIndex: number): BeatContainerGlyphBase | undefined {
+        const beat = this._jianpuBeats[eventIndex];
+        if (!beat) {
+            return undefined;
+        }
+
+        let container = this.voiceContainer.getBeatContainer(beat);
+        if (container) {
+            return container;
+        }
+
+        const voiceGlyphs = this.voiceContainer.beatGlyphs.get(beat.voice?.index ?? 0);
+        if (!voiceGlyphs) {
+            return undefined;
+        }
+
+        for (const glyph of voiceGlyphs) {
+            if (glyph.beatId === beat.id) {
+                return glyph;
+            }
+        }
+
+        let mainIdx = 0;
+        for (const glyph of voiceGlyphs) {
+            if (glyph.beatId < 0) {
+                continue;
+            }
+            if (mainIdx === eventIndex) {
+                return glyph;
+            }
+            mainIdx++;
+        }
+
+        return undefined;
+    }
+
+    private _jianpuEventLineX(eventIndex: number, edge: 'pre' | 'post'): number {
+        const beat = this._jianpuBeats[eventIndex];
+        if (!beat) {
+            return 0;
+        }
+        const pos = edge === 'pre' ? BeatXPosition.PreNotes : BeatXPosition.PostNotes;
+        const container = this._getBeatContainerForEventIndex(eventIndex);
+        if (container) {
+            const inner = container.getBeatX(pos, false);
+            return this.beatGlyphsStart + container.x + inner;
+        }
+        return this.getBeatX(beat, pos);
     }
 
     protected override applyBarShift(

@@ -33,6 +33,26 @@ export class JianpuEvent {
      * If set, this lyric will be rendered above the corresponding Jianpu symbol.
      */
     public lyric: string | null = null;
+    /**
+     * 拍末断开减时线分组（对应 BeatBeamingMode.ForceSplitToNext）。
+     */
+    public splitBeamAfter: boolean = false;
+    /**
+     * 横线连接组 id（≥0）。同组短音符总时值须为 1 拍；-1 表示不横线连接。
+     */
+    public jianpuBeamGroup: number = -1;
+    /**
+     * 本组横线终点 event 下标（同小节内）；单独音符为自身下标。
+     */
+    public jianpuBeamToIndex: number = -1;
+    /**
+     * 弧顶连音线延续到下一 event（同音高跨拍）。
+     */
+    public tieToNext: boolean = false;
+    /**
+     * 从上一 event 连音延续而来。
+     */
+    public tiedFromPrev: boolean = false;
 }
 
 /**
@@ -294,6 +314,27 @@ export class Bar {
      * beats in the voices for that bar only.
      */
     public jianpuEvents: JianpuEvent[] = [];
+
+    /**
+     * 本小节内已验证的连音线（dest 必须为 origin + 1）。
+     * @internal
+     * @json_ignore
+     */
+    public jianpuTiePairs: Array<{ origin: number; dest: number }> = [];
+
+    /**
+     * 跨小节连音终点 event 下标（承接 staff 级 pendingTieOriginIndex）。
+     * @internal
+     * @json_ignore
+     */
+    public jianpuCrossBarTieDestIndex: number | null = null;
+
+    /**
+     * 本小节末仍延续到下一小节的连音起点 event 下标（无则 null）。
+     * @internal
+     * @json_ignore
+     */
+    public jianpuPendingTieOriginIndex: number | null = null;
 
     /**
      * Gets or sets the clef on this bar.

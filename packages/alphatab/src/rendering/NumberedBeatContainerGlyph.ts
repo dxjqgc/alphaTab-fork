@@ -80,6 +80,10 @@ export class NumberedBeatContainerGlyph extends BeatContainerGlyph {
     }
 
     protected override createTies(n: Note): void {
+        if (n.beat.voice?.bar?.staff?.usesJianpuEventsOnly && n.beat.voice.bar.jianpuEvents.length > 0) {
+            return;
+        }
+
         // create a tie if any effect requires it
         if (!n.isVisible) {
             return;

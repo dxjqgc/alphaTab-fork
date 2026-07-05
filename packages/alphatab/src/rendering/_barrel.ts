@@ -10,3 +10,12 @@ export { BoundsLookup } from '@coderline/alphatab/rendering/utils/BoundsLookup';
 export { MasterBarBounds } from '@coderline/alphatab/rendering/utils/MasterBarBounds';
 export { NoteBounds } from '@coderline/alphatab/rendering/utils/NoteBounds';
 export { StaffSystemBounds } from '@coderline/alphatab/rendering/utils/StaffSystemBounds';
+
+export {
+    groupNotesForBeam,
+    beatValueFromDenominator,
+    jianpuEventNodeTime,
+    jianpuEventUnderlineCount,
+    buildJianpuDrawNotes
+} from '@coderline/alphatab/rendering/jianpu/simpleNotation/index';
+export type { JianpuDrawNote, JianpuEventLayoutCoords } from '@coderline/alphatab/rendering/jianpu/simpleNotation/index';

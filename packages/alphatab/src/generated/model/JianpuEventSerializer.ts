@@ -26,6 +26,11 @@ export class JianpuEventSerializer {
         o.set("octaveshift", obj.octaveShift);
         o.set("dots", obj.dots);
         o.set("lyric", obj.lyric);
+        o.set("splitbeamafter", obj.splitBeamAfter);
+        o.set("jianpubeamgroup", obj.jianpuBeamGroup);
+        o.set("jianpubeamtoindex", obj.jianpuBeamToIndex);
+        o.set("tietonext", obj.tieToNext);
+        o.set("tiedfromprev", obj.tiedFromPrev);
         return o;
     }
     public static setProperty(obj: JianpuEvent, property: string, v: unknown): boolean {
@@ -44,6 +49,21 @@ export class JianpuEventSerializer {
                 return true;
             case "lyric":
                 obj.lyric = v as string | null;
+                return true;
+            case "splitbeamafter":
+                obj.splitBeamAfter = v! as boolean;
+                return true;
+            case "jianpubeamgroup":
+                obj.jianpuBeamGroup = v! as number;
+                return true;
+            case "jianpubeamtoindex":
+                obj.jianpuBeamToIndex = v! as number;
+                return true;
+            case "tietonext":
+                obj.tieToNext = v! as boolean;
+                return true;
+            case "tiedfromprev":
+                obj.tiedFromPrev = v! as boolean;
                 return true;
         }
         return false;

@@ -8,8 +8,10 @@ import { JsonHelper } from "@coderline/alphatab/io/JsonHelper";
 import { BarSerializer } from "@coderline/alphatab/generated/model/BarSerializer";
 import { ChordSerializer } from "@coderline/alphatab/generated/model/ChordSerializer";
 import { TuningSerializer } from "@coderline/alphatab/generated/model/TuningSerializer";
+import { NoteSerializer } from "@coderline/alphatab/generated/model/NoteSerializer";
 import { Bar } from "@coderline/alphatab/model/Bar";
 import { Chord } from "@coderline/alphatab/model/Chord";
+import { Note } from "@coderline/alphatab/model/Note";
 /**
  * @internal
  */
@@ -40,6 +42,11 @@ export class StaffSerializer {
         o.set("showslash", obj.showSlash);
         o.set("shownumbered", obj.showNumbered);
         o.set("jianpueventsonly", obj.jianpuEventsOnly);
+        if (obj.jianpuPendingTieOrigin) {
+            o.set("jianpupendingtieorigin", NoteSerializer.toJson(obj.jianpuPendingTieOrigin));
+        }
+        o.set("jianpupendingtiedrawx", obj.jianpuPendingTieDrawX);
+        o.set("jianpupendingtiedrawy", obj.jianpuPendingTieDrawY);
         o.set("showtablature", obj.showTablature);
         o.set("showstandardnotation", obj.showStandardNotation);
         o.set("ispercussion", obj.isPercussion);
@@ -84,6 +91,21 @@ export class StaffSerializer {
                 return true;
             case "jianpueventsonly":
                 obj.jianpuEventsOnly = v! as boolean;
+                return true;
+            case "jianpupendingtieorigin":
+                if (v) {
+                    obj.jianpuPendingTieOrigin = new Note();
+                    NoteSerializer.fromJson(obj.jianpuPendingTieOrigin, v);
+                }
+                else {
+                    obj.jianpuPendingTieOrigin = null;
+                }
+                return true;
+            case "jianpupendingtiedrawx":
+                obj.jianpuPendingTieDrawX = v! as number;
+                return true;
+            case "jianpupendingtiedrawy":
+                obj.jianpuPendingTieDrawY = v! as number;
                 return true;
             case "showtablature":
                 obj.showTablature = v! as boolean;

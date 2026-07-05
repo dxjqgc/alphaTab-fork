@@ -1,7 +1,6 @@
 import { EngravingSettings } from '@coderline/alphatab/EngravingSettings';
 import { AccidentalType } from '@coderline/alphatab/model/AccidentalType';
 import { BeatSubElement } from '@coderline/alphatab/model/Beat';
-import { Duration } from '@coderline/alphatab/model/Duration';
 import { GraceType } from '@coderline/alphatab/model/GraceType';
 import { KeySignatureType } from '@coderline/alphatab/model/KeySignatureType';
 import { ModelUtils } from '@coderline/alphatab/model/ModelUtils';
@@ -9,6 +8,8 @@ import { type Note, NoteSubElement } from '@coderline/alphatab/model/Note';
 import { NoteAccidentalMode } from '@coderline/alphatab/model/NoteAccidentalMode';
 import { NoteXPosition, NoteYPosition } from '@coderline/alphatab/rendering/BarRendererBase';
 import { AccidentalGlyph } from '@coderline/alphatab/rendering/glyphs/AccidentalGlyph';
+import { jianpuEventUnderlineCount } from '@coderline/alphatab/rendering/jianpu/simpleNotation/durationUtils';
+import type { JianpuEvent } from '@coderline/alphatab/model/Bar';
 import { AccidentalGroupGlyph } from '@coderline/alphatab/rendering/glyphs/AccidentalGroupGlyph';
 import { AugmentationDotGlyph } from '@coderline/alphatab/rendering/glyphs/AugmentationDotGlyph';
 import { BeatGlyphBase } from '@coderline/alphatab/rendering/glyphs/BeatGlyphBase';
@@ -223,6 +224,7 @@ export class NumberedBeatGlyph extends BeatOnNoteGlyphBase {
         }
 
         let octaveDots = 0;
+        let jianpuEventForGlyph: JianpuEvent | null = null;
 
         if (!this.container.beat.isEmpty) {
             const glyphY = sr.getLineY(0);
@@ -243,6 +245,7 @@ export class NumberedBeatGlyph extends BeatOnNoteGlyphBase {
                     }
                     numberWithinOctave = event.text;
                     octaveDots = event.octaveShift;
+                    jianpuEventForGlyph = event;
                 }
             } else if (this.container.beat.notes.length > 0) {
                 const note = this.container.beat.notes[0];
@@ -285,13 +288,21 @@ export class NumberedBeatGlyph extends BeatOnNoteGlyphBase {
                 this.addEffect(deadSlapped);
             } else {
                 const isGrace: boolean = this.container.beat.graceType !== GraceType.None;
+                const useSimpleNotation = !!jianpuEventForGlyph && bar.staff.usesJianpuEventsOnly;
                 const noteHeadGlyph = new NumberedNoteHeadGlyph(
                     0,
                     glyphY,
                     numberWithinOctave,
                     isGrace,
                     this.container.beat,
-                    octaveDots
+                    octaveDots,
+                    useSimpleNotation && jianpuEventForGlyph
+                        ? {
+                              useSimpleNotation: true,
+                              jianpuDots: jianpuEventForGlyph.dots,
+                              underlineCount: jianpuEventUnderlineCount(jianpuEventForGlyph)
+                          }
+                        : undefined
                 );
                 this.noteHeads = noteHeadGlyph;
 
@@ -299,8 +310,8 @@ export class NumberedBeatGlyph extends BeatOnNoteGlyphBase {
             }
 
             //
-            // Note dots
-            if (this.container.beat.dots > 0) {
+            // Note dots（simple-notation 模式下由 drawSimpleNote 绘制附点）
+            if (this.container.beat.dots > 0 && !(jianpuEventForGlyph && bar.staff.usesJianpuEventsOnly)) {
                 for (let i: number = 0; i < this.container.beat.dots; i++) {
                     const dot = new AugmentationDotGlyph(0, glyphY);
                     dot.renderer = this.renderer;

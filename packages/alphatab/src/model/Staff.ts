@@ -1,5 +1,6 @@
 import type { Bar } from '@coderline/alphatab/model/Bar';
 import type { Chord } from '@coderline/alphatab/model/Chord';
+import type { Note } from '@coderline/alphatab/model/Note';
 import type { Track } from '@coderline/alphatab/model/Track';
 import { Tuning } from '@coderline/alphatab/model/Tuning';
 import type { Settings } from '@coderline/alphatab/Settings';
@@ -96,6 +97,24 @@ export class Staff {
      * This is also enabled automatically when any bar on this staff has jianpu events.
      */
     public jianpuEventsOnly: boolean = false;
+
+    /**
+     * Layout-time tie origin carried across bars when rendering {@link Bar.jianpuEvents}.
+     * @internal
+     */
+    public jianpuPendingTieOrigin: Note | null = null;
+
+    /**
+     * 跨小节弧顶连音线起点 X（相对小节左缘；-1 表示无）。
+     * @internal
+     */
+    public jianpuPendingTieDrawX: number = -1;
+
+    /**
+     * 跨小节弧顶连音线起点 Y（相对 renderer；-1 表示无）。
+     * @internal
+     */
+    public jianpuPendingTieDrawY: number = -1;
 
     /**
      * Gets whether this staff uses jianpu events as the sole source for numbered notation.
