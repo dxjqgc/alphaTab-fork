@@ -85,11 +85,19 @@ export function drawSimpleNote(canvas: ICanvas, options: DrawSimpleNoteOptions):
     }
 
     if (dots > 0) {
-        canvas.textAlign = TextAlign.Left;
-        let dotX = x + digitSize.width / 2 + 2;
+        // 使用 Bravura 音乐字体的 AugmentationDot，比普通小数点更清晰
+        const dotScale = 0.8; // 稍微放大，使其更醒目
+        let dotX = x + digitSize.width / 2 + 4;
         for (let d = 0; d < dots; d++) {
-            canvas.fillText('.', dotX, y);
-            dotX += digitSize.width * 0.35;
+            CanvasHelper.fillMusicFontSymbolSafe(
+                canvas,
+                dotX,
+                y,
+                dotScale,
+                MusicFontSymbol.AugmentationDot,
+                true
+            );
+            dotX += digitSize.width * 0.4;
         }
     }
 
