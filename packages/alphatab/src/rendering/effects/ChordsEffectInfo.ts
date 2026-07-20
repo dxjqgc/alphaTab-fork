@@ -69,9 +69,10 @@ export class ChordsEffectInfo extends EffectInfo {
      * This is called from EffectBand.alignGlyphs() after _alignGlyph has
      * set each glyph's x-position based on the beat's onTimeX.
      *
-     * When overlaps are detected, we expand the bar width by the total overlap
-     * amount so that only bars with actual chord collisions get widened,
-     * rather than inflating all bars globally through the spring system.
+     * The spring system (via BarLayoutingInfo.finish()) already expands
+     * postSpringWidth on springs between chord beats, so beats are properly
+     * spaced. This method handles any remaining sub-pixel overlaps as a
+     * final visual safety net within the effect band only.
      */
     public override onAlignGlyphs(band: EffectBand): void {
         // Collect all chord glyphs with their current x-positions
@@ -92,7 +93,8 @@ export class ChordsEffectInfo extends EffectInfo {
         // Resolve overlaps: push right-side glyphs to maintain minimum gap.
         // We iterate left-to-right; each overlap pushes the right glyph and
         // all subsequent glyphs, so earlier corrections are preserved.
-        let totalExpansion: number = 0;
+        // This is a visual safety net — the spring system should have already
+        // allocated enough space between beats via postSpringWidth expansion.
         for (let i = 0; i < glyphs.length - 1; i++) {
             const current = glyphs[i];
             const next = glyphs[i + 1];
@@ -112,16 +114,7 @@ export class ChordsEffectInfo extends EffectInfo {
                 for (let j = i + 1; j < glyphs.length; j++) {
                     glyphs[j].x += overlap;
                 }
-                totalExpansion += overlap;
             }
-        }
-
-        // Expand the bar width to accommodate the pushed-out chord glyphs,
-        // but only when actual overlaps were resolved. This ensures only
-        // bars with chord collisions get widened, not all bars uniformly.
-        if (totalExpansion > 0) {
-            band.renderer.width += totalExpansion;
-            band.renderer.computedWidth += totalExpansion;
         }
     }
 }

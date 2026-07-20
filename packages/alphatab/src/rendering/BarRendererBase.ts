@@ -271,6 +271,12 @@ export class BarRendererBase {
         if (info.postBeatSize < postSize) {
             info.postBeatSize = postSize;
         }
+
+        // Register chord effect glyph widths so the spring system can
+        // expand postSpringWidth on springs between chord beats. This
+        // only widens the specific springs between chord beats, not all
+        // springs globally.
+        this.topEffects.registerChordEffectWidths(info);
     }
 
     private _appliedLayoutingInfo: number = 0;

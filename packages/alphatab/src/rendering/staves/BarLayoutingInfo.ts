@@ -33,6 +33,15 @@ export class BarLayoutingInfo {
     private _incompleteGraceRodsWidth: number = 0;
     private _beatSizes: Map<number, BarLayoutingInfoBeatSizes> = new Map();
 
+    /**
+     * Tracks the visual width of chord effect glyphs keyed by beat absoluteDisplayStart.
+     * Used in finish() to expand postSpringWidth of springs between beats with chords
+     * so adjacent chord diagrams don't overlap. Unlike the previous approach of
+     * inflating minStretchForce globally, this only widens the specific springs
+     * between chord beats.
+     */
+    private _chordEffectWidths: Map<number, number> = new Map();
+
     // the smallest duration we have between two springs to ensure we have positive spring constants
     private _minDuration: number = BarLayoutingInfo._defaultMinDuration;
 
@@ -73,6 +82,19 @@ export class BarLayoutingInfo {
             }
         } else {
             this._beatSizes.set(key, sizes);
+        }
+    }
+
+    /**
+     * Registers the visual width of a chord effect glyph for the given beat.
+     * These widths are used in finish() to expand postSpringWidth on springs
+     * between chord beats, preventing adjacent chord diagrams from overlapping.
+     */
+    public setChordEffectWidth(beat: Beat, width: number): void {
+        const key = beat.absoluteDisplayStart;
+        const existing = this._chordEffectWidths.get(key);
+        if (existing === undefined || width > existing) {
+            this._chordEffectWidths.set(key, width);
         }
     }
 
@@ -235,6 +257,28 @@ export class BarLayoutingInfo {
         for (const s of this.incompleteGraceRods.values()) {
             for (const sp of s) {
                 this._incompleteGraceRodsWidth += sp.preBeatWidth + sp.postSpringWidth;
+            }
+        }
+
+        // Expand postSpringWidth on springs between chord beats so that
+        // adjacent chord diagrams have enough horizontal space. Each chord
+        // diagram is centered on its beat, so half its width extends left
+        // and half right. We add the right half of the current beat's chord
+        // + left half of the next beat's chord to the gap between them.
+        // This only widens specific springs, not all springs globally.
+        if (this._chordEffectWidths.size > 0) {
+            const sortedSprings = this._timeSortedSprings;
+            for (let i = 0; i < sortedSprings.length - 1; i++) {
+                const currentSpring = sortedSprings[i];
+                const nextSpring = sortedSprings[i + 1];
+                const currentChordW = this._chordEffectWidths.get(currentSpring.timePosition) ?? 0;
+                const nextChordW = this._chordEffectWidths.get(nextSpring.timePosition) ?? 0;
+                if (currentChordW > 0 || nextChordW > 0) {
+                    // Add right half of current + left half of next + gap
+                    const extraSpace = currentChordW / 2 + nextChordW / 2
+                        + (currentChordW > 0 && nextChordW > 0 ? 2 : 0);
+                    currentSpring.postSpringWidth += extraSpace;
+                }
             }
         }
 

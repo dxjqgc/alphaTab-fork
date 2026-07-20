@@ -1,10 +1,12 @@
 import type { Voice } from '@coderline/alphatab/model/Voice';
+import { NotationElement } from '@coderline/alphatab/NotationSettings';
 import type { ICanvas } from '@coderline/alphatab/platform/ICanvas';
 import type { BarRendererBase } from '@coderline/alphatab/rendering/BarRendererBase';
 import type { EffectBandInfo } from '@coderline/alphatab/rendering/BarRendererFactory';
 import { EffectBand } from '@coderline/alphatab/rendering/EffectBand';
 import { EffectBandSizingInfo } from '@coderline/alphatab/rendering/EffectBandSizingInfo';
 import type { EffectInfo } from '@coderline/alphatab/rendering/EffectInfo';
+import type { BarLayoutingInfo } from '@coderline/alphatab/rendering/staves/BarLayoutingInfo';
 
 /**
  * Wraps the whole effect band staff for having two times the same container
@@ -181,5 +183,25 @@ export class EffectBandContainer {
             return this._bandLookup.get(id)!;
         }
         return null;
+    }
+
+    /**
+     * Registers chord effect glyph widths into the layout info so the spring
+     * system can expand postSpringWidth on springs between chord beats.
+     */
+    public registerChordEffectWidths(info: BarLayoutingInfo): void {
+        for (const band of this._bands) {
+            if (band.isEmpty) {
+                continue;
+            }
+            if (band.info.notationElement !== NotationElement.EffectChordNames) {
+                continue;
+            }
+            for (const g of band.iterateAllGlyphs()) {
+                if (g.beat && g.width > 0) {
+                    info.setChordEffectWidth(g.beat, g.width);
+                }
+            }
+        }
     }
 }
