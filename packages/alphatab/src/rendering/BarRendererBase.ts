@@ -271,12 +271,6 @@ export class BarRendererBase {
         if (info.postBeatSize < postSize) {
             info.postBeatSize = postSize;
         }
-
-        // Register chord effect glyph widths so the spring system accounts
-        // for chord diagram/names widths when computing minStretchForce.
-        // This ensures bars are wide enough to accommodate chord diagrams
-        // without adjacent ones overlapping.
-        this.topEffects.registerChordEffectWidths(info);
     }
 
     private _appliedLayoutingInfo: number = 0;

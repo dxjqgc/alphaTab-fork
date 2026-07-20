@@ -33,15 +33,6 @@ export class BarLayoutingInfo {
     private _incompleteGraceRodsWidth: number = 0;
     private _beatSizes: Map<number, BarLayoutingInfoBeatSizes> = new Map();
 
-    /**
-     * Tracks the visual width of chord effect glyphs (fret diagrams or chord
-     * name text) keyed by beat absoluteDisplayStart. These widths are NOT
-     * accounted for by the note-level preBeatWidth/postSpringWidth springs
-     * but must be included in the minStretchForce calculation to prevent
-     * adjacent chord diagrams from overlapping.
-     */
-    private _chordEffectWidths: Map<number, number> = new Map();
-
     // the smallest duration we have between two springs to ensure we have positive spring constants
     private _minDuration: number = BarLayoutingInfo._defaultMinDuration;
 
@@ -83,32 +74,6 @@ export class BarLayoutingInfo {
         } else {
             this._beatSizes.set(key, sizes);
         }
-    }
-
-    /**
-     * Registers the visual width of a chord effect glyph for the given beat.
-     * Chord diagrams and chord name text are centered on the beat's onTimeX,
-     * so their width extends equally to the left and right. Including this
-     * width in the spring system ensures beats are spaced far enough apart
-     * to prevent adjacent chord diagrams from overlapping.
-     * @param beat The beat that has the chord effect glyph.
-     * @param width The visual width of the chord effect glyph.
-     */
-    public setChordEffectWidth(beat: Beat, width: number): void {
-        const key = beat.absoluteDisplayStart;
-        const existing = this._chordEffectWidths.get(key);
-        if (existing === undefined || width > existing) {
-            this._chordEffectWidths.set(key, width);
-        }
-    }
-
-    /**
-     * Gets the chord effect glyph width for the given beat.
-     * @param beat The beat to query.
-     * @returns The chord effect glyph width, or 0 if the beat has no chord.
-     */
-    public getChordEffectWidth(beat: Beat): number {
-        return this._chordEffectWidths.get(beat.absoluteDisplayStart) ?? 0;
     }
 
     public getPreBeatSize(beat: Beat) {
@@ -309,31 +274,17 @@ export class BarLayoutingInfo {
             const currentSpring = sortedSprings[i];
             let requiredSpace = 0;
 
-            // Get chord effect widths for this spring and the next.
-            // Chord diagrams are centered on the beat's onTimeX, so half the
-            // width extends to the left (pre-beat side) and half to the right
-            // (post-beat side). We add these half-widths to the spring spacing
-            // so the minStretchForce calculation ensures enough room.
-            const currentChordW = this._chordEffectWidths.get(currentSpring.timePosition) ?? 0;
-
             if (i === sortedSprings.length - 1) {
-                requiredSpace = currentSpring.postSpringWidth + currentChordW / 2;
+                requiredSpace = currentSpring.postSpringWidth;
             } else {
                 const nextSpring = sortedSprings[i + 1];
-                const nextChordW = this._chordEffectWidths.get(nextSpring.timePosition) ?? 0;
-                // Add chord half-widths: right half of current beat's chord +
-                // left half of next beat's chord. If both beats have chords,
-                // also add a small gap to prevent touching.
-                const chordSpacing = currentChordW / 2 + nextChordW / 2
-                    + (currentChordW > 0 && nextChordW > 0 ? 2 : 0);
-                requiredSpace = currentSpring.postSpringWidth + nextSpring.preSpringWidth + chordSpacing;
+                requiredSpace = currentSpring.postSpringWidth + nextSpring.preSpringWidth;
             }
 
             // for the first spring we need to ensure we take the initial
-            // pre-spring width into account (including the left half of the
-            // chord diagram if present on the first beat)
+            // pre-spring width into account
             if (i === 0) {
-                requiredSpace += currentSpring.preSpringWidth + currentChordW / 2;
+                requiredSpace += currentSpring.preSpringWidth;
             }
 
             const requiredSpaceForce = requiredSpace * currentSpring.springConstant;

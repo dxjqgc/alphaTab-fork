@@ -1,12 +1,10 @@
 import type { Voice } from '@coderline/alphatab/model/Voice';
-import { NotationElement } from '@coderline/alphatab/NotationSettings';
 import type { ICanvas } from '@coderline/alphatab/platform/ICanvas';
 import type { BarRendererBase } from '@coderline/alphatab/rendering/BarRendererBase';
 import type { EffectBandInfo } from '@coderline/alphatab/rendering/BarRendererFactory';
 import { EffectBand } from '@coderline/alphatab/rendering/EffectBand';
 import { EffectBandSizingInfo } from '@coderline/alphatab/rendering/EffectBandSizingInfo';
 import type { EffectInfo } from '@coderline/alphatab/rendering/EffectInfo';
-import type { BarLayoutingInfo } from '@coderline/alphatab/rendering/staves/BarLayoutingInfo';
 
 /**
  * Wraps the whole effect band staff for having two times the same container
@@ -183,33 +181,5 @@ export class EffectBandContainer {
             return this._bandLookup.get(id)!;
         }
         return null;
-    }
-
-    /**
-     * Registers chord effect glyph widths into the layout info so the spring
-     * system can allocate enough horizontal space between beats to prevent
-     * adjacent chord diagrams from overlapping.
-     *
-     * This iterates over all effect bands, finds those that produce chord
-     * effect glyphs (identified by their sizingMode being SingleOnBeat and
-     * having chord-related notation elements), and registers each glyph's
-     * width keyed by the beat's absoluteDisplayStart.
-     */
-    public registerChordEffectWidths(info: BarLayoutingInfo): void {
-        for (const band of this._bands) {
-            if (band.isEmpty) {
-                continue;
-            }
-            // Only register widths for chord effect bands (ChordsEffectInfo).
-            // ChordsEffectInfo uses NotationElement.EffectChordNames.
-            if (band.info.notationElement !== NotationElement.EffectChordNames) {
-                continue;
-            }
-            for (const g of band.iterateAllGlyphs()) {
-                if (g.beat && g.width > 0) {
-                    info.setChordEffectWidth(g.beat, g.width);
-                }
-            }
-        }
     }
 }
