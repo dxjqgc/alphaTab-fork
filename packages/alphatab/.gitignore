@@ -5,4 +5,8 @@ font/bravura/bravura_alphatab_metadata.json
 test-data/bundler/webpack/out/
 test-data/bundler/vite/public/
 test-data/bundler/dist/public/
+# Visual/importer test comparison artifacts (regenerated on each test run)
+*.new.png
+*.diff.png
+*.source.new
 /README.md
