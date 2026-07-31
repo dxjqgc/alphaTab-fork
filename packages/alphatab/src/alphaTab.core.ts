@@ -17,6 +17,8 @@ export {
 } from '@coderline/alphatab/PlayerSettings';
 export { ProgressEventArgs } from '@coderline/alphatab/ProgressEventArgs';
 export { RenderingResources } from '@coderline/alphatab/RenderingResources';
+export { RenderingTheme } from '@coderline/alphatab/RenderingTheme';
+export type { RenderingThemeDescriptor, RenderingThemeTokens } from '@coderline/alphatab/RenderingTheme';
 export type {
     SmuflEngravingDefaults,
     SmuflGlyphBoundingBox,

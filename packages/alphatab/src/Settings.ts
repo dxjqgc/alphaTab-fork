@@ -74,6 +74,7 @@ export class Settings {
      */
     public fillFromJson(json: SettingsJson): void {
         SettingsSerializer.fromJson(this, json);
+        this.display.applyCurrentTheme();
     }
 
     /**

@@ -158,6 +158,28 @@ export interface DisplaySettingsJson {
      */
     resources?: RenderingResourcesJson;
     /**
+     * The name of the currently active rendering theme.
+     * Setting this applies the named theme from the {@link RenderingTheme} registry.
+     * Built-in themes: `'light'`, `'dark'`, `'sepia'`.
+     * Set to `undefined` to use manually configured {@link resources}.
+     *
+     * @remarks
+     * When a theme is active, it **overrides** the individual color and font values in
+     * {@link resources}: any values previously set on `resources` are replaced the next time
+     * the theme is applied. There is no merge — the theme wins.
+     *
+     * Assignment to this field is **not** applied immediately. The theme is applied when
+     * {@link applyCurrentTheme} runs, which happens automatically during initialization,
+     * `updateSettings()`, and after loading settings from JSON. To pick up a theme change
+     * made after construction, call `api.updateSettings()` (or re-render). Changing the theme
+     * before the first `render()` call is always sufficient.
+     *
+     * @since 2.0
+     * @category Display
+     * @defaultValue `undefined`
+     */
+    theme?: string | undefined;
+    /**
      * Adjusts the padding between the music notation and the border.
      * @remarks
      * Adjusts the padding between the music notation and the outer border of the container element.

@@ -43,6 +43,7 @@ export class RenderingResourcesSerializer {
         o.set("mainglyphcolor", Color.toJson(obj.mainGlyphColor)!);
         o.set("secondaryglyphcolor", Color.toJson(obj.secondaryGlyphColor)!);
         o.set("scoreinfocolor", Color.toJson(obj.scoreInfoColor)!);
+        o.set("backgroundcolor", Color.toJson(obj.backgroundColor)!);
         return o;
     }
     public static setProperty(obj: RenderingResources, property: string, v: unknown): boolean {
@@ -84,6 +85,9 @@ export class RenderingResourcesSerializer {
                 return true;
             case "scoreinfocolor":
                 obj.scoreInfoColor = Color.fromJson(v)!;
+                return true;
+            case "backgroundcolor":
+                obj.backgroundColor = Color.fromJson(v)!;
                 return true;
         }
         if (["engravingsettings"].indexOf(property) >= 0) {

@@ -145,6 +145,9 @@ export abstract class ScoreLayout {
     private _internalRenderLazyPartial(args: RenderFinishedEventArgs, callback: (canvas: ICanvas) => void) {
         const canvas = this.renderer.canvas!;
         canvas.beginRender(args.width, args.height);
+        const bg = this.renderer.settings.display.resources.backgroundColor;
+        canvas.color = bg;
+        canvas.fillRect(0, 0, args.width, args.height);
         callback(canvas);
         args.renderResult = canvas.endRender();
         (this.renderer.partialRenderFinished as EventEmitterOfT<RenderFinishedEventArgs>).trigger(args);

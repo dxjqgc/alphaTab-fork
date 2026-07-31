@@ -127,4 +127,17 @@ export interface RenderingResourcesJson {
      * @since 0.9.6
      */
     scoreInfoColor?: ColorJson;
+    /**
+     * The color used to fill the render surface at the start of each partial render.
+     * @defaultValue `rgb(255, 255, 255)` (opaque white)
+     * @remarks
+     * The surface is filled with this color before any notation is drawn. The default opaque
+     * white preserves the historical appearance where the host page provided a white background
+     * behind a transparent canvas. Users whose host-page CSS was non-white will now see a white
+     * surface where they previously saw their page color show through — to restore a fully
+     * transparent surface, set this to a fully transparent color such as `new Color(0, 0, 0, 0)`.
+     * Theme-driven values (e.g. the built-in `dark` theme) override this field via {@link applyFrom}.
+     * @since 2.1
+     */
+    backgroundColor?: ColorJson;
 }

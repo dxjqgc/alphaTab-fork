@@ -3,6 +3,7 @@ import { Color } from '@coderline/alphatab/model/Color';
 import { Font, FontStyle, FontWeight } from '@coderline/alphatab/model/Font';
 import { ScoreSubElement } from '@coderline/alphatab/model/Score';
 import { NotationElement } from '@coderline/alphatab/NotationSettings';
+import type { RenderingThemeDescriptor } from '@coderline/alphatab/RenderingTheme';
 
 /**
  * This public class contains central definitions for controlling the visual appearance.
@@ -338,8 +339,73 @@ export class RenderingResources {
      */
     public scoreInfoColor: Color = new Color(0, 0, 0, 0xff);
 
+    /**
+     * The color used to fill the render surface at the start of each partial render.
+     * @defaultValue `rgb(255, 255, 255)` (opaque white)
+     * @remarks
+     * The surface is filled with this color before any notation is drawn. The default opaque
+     * white preserves the historical appearance where the host page provided a white background
+     * behind a transparent canvas. Users whose host-page CSS was non-white will now see a white
+     * surface where they previously saw their page color show through — to restore a fully
+     * transparent surface, set this to a fully transparent color such as `new Color(0, 0, 0, 0)`.
+     * Theme-driven values (e.g. the built-in `dark` theme) override this field via {@link applyFrom}.
+     * @since 2.1
+     */
+    public backgroundColor: Color = new Color(255, 255, 255, 0xff);
+
     public constructor() {
         for (const [k, v] of RenderingResources.defaultFonts) {
+            this.elementFonts.set(k, v.withSize(v.size));
+        }
+    }
+
+    /**
+     * Applies all color and font values from a {@link RenderingThemeDescriptor} to this instance.
+     *
+     * @remarks
+     * Colors are assigned by reference (they are treated as immutable values).
+     * Fonts are copied via {@link Font.withSize} so this instance never shares a mutable
+     * {@link Font} object with the theme descriptor or its registry, mirroring the defensive
+     * copy performed in the {@link RenderingResources} constructor.
+     *
+     * When the descriptor provides {@link RenderingThemeDescriptor.tokens}, the semantic tokens
+     * are resolved into the terminal color fields and take precedence over any direct terminal
+     * color values also set on the descriptor. When `tokens` is absent, the direct terminal
+     * color fields are used (A-tier backward compatibility).
+     *
+     * @param theme The theme descriptor to copy values from.
+     * @since 2.0
+     * @internal
+     */
+    public applyFrom(theme: RenderingThemeDescriptor): void {
+        if (theme.tokens) {
+            const t = theme.tokens;
+            this.staffLineColor = t.staffLine;
+            this.barSeparatorColor = t.barSeparator;
+            this.barNumberColor = t.barNumber;
+            this.mainGlyphColor = t.foreground;
+            this.secondaryGlyphColor = t.foregroundMuted;
+            this.scoreInfoColor = t.scoreInfo;
+            this.backgroundColor = t.background;
+        } else {
+            // A-tier backward-compat path: direct terminal fields (required by contract when no tokens).
+            this.staffLineColor = theme.staffLineColor!;
+            this.barSeparatorColor = theme.barSeparatorColor!;
+            this.barNumberColor = theme.barNumberColor!;
+            this.mainGlyphColor = theme.mainGlyphColor!;
+            this.secondaryGlyphColor = theme.secondaryGlyphColor!;
+            this.scoreInfoColor = theme.scoreInfoColor!;
+            this.backgroundColor = theme.backgroundColor!;
+        }
+        this.tablatureFont = theme.tablatureFont.withSize(theme.tablatureFont.size);
+        this.graceFont = theme.graceFont.withSize(theme.graceFont.size);
+        this.numberedNotationFont = theme.numberedNotationFont.withSize(theme.numberedNotationFont.size);
+        this.numberedNotationGraceFont = theme.numberedNotationGraceFont.withSize(
+            theme.numberedNotationGraceFont.size
+        );
+        this.smuflFontFamilyName = theme.smuflFontFamilyName;
+        this.elementFonts.clear();
+        for (const [k, v] of theme.elementFonts) {
             this.elementFonts.set(k, v.withSize(v.size));
         }
     }

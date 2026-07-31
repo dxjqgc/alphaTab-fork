@@ -378,6 +378,7 @@ export class AlphaTabApiBase<TSettings> {
         Logger.logLevel = this.settings.core.logLevel;
 
         this.settings.handleBackwardsCompatibility();
+        this.settings.display.applyCurrentTheme();
 
         Environment.printEnvironmentInfo(false);
 
@@ -546,6 +547,7 @@ export class AlphaTabApiBase<TSettings> {
      */
     public updateSettings(): void {
         this.settings.handleBackwardsCompatibility();
+        this.settings.display.applyCurrentTheme();
 
         const score = this.score;
         if (score) {
