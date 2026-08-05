@@ -137,9 +137,9 @@ export class Voice {
             if (nextVoice.beats.length > 0) {
                 beat.nextBeat = nextVoice.beats[0];
                 beat.nextBeat.previousBeat = beat;
-            } else {
-                beat.nextBeat!.previousBeat = beat;
             }
+            // next voice 为空时：无 nextBeat 可链，保持 null，不做任何事
+            // （此前此处误用 beat.nextBeat!.previousBeat = beat，nextBeat 仍为 null 导致空指针）
         }
 
         beat.chain(sharedDataBag);

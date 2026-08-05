@@ -37,7 +37,10 @@ export class ChordsEffectInfo extends EffectInfo {
     }
 
     public shouldCreateGlyph(_settings: Settings, beat: Beat): boolean {
-        return beat.hasChord;
+        // beat.hasChord 仅判断 chordId 是否非空，不保证该 chord 已在 staff.chords 注册。
+        // 若 chordId 未注册，beat.chord 为 null，createNewGlyph 用 beat.chord! 会构造空 chord 的 glyph
+        // → ChordDiagramGlyph.doLayout 读 firstFret 时空指针。此处加守卫：chord 未注册则不创建 glyph。
+        return beat.hasChord && beat.chord !== null;
     }
 
     public createNewGlyph(renderer: BarRendererBase, beat: Beat): EffectGlyph {
