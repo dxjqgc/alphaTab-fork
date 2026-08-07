@@ -403,7 +403,16 @@ export class RenderingResources {
         this.numberedNotationGraceFont = theme.numberedNotationGraceFont.withSize(
             theme.numberedNotationGraceFont.size
         );
-        this.smuflFontFamilyName = theme.smuflFontFamilyName;
+        if (theme.smuflFont) {
+            // Atomic: bind the font family name to its matching metrics so swapping a
+            // music font (e.g. Bravura to Petaluma) carries the metrics with it.
+            this.smuflFontFamilyName = theme.smuflFont.familyName;
+            this.engravingSettings = theme.smuflFont.engravingSettings;
+        } else {
+            this.smuflFontFamilyName = theme.smuflFontFamilyName;
+            // engravingSettings left untouched (defaults to Bravura) when only the
+            // family name is overridden — see RenderingThemeDescriptor.smuflFontFamilyName.
+        }
         this.elementFonts.clear();
         for (const [k, v] of theme.elementFonts) {
             this.elementFonts.set(k, v.withSize(v.size));

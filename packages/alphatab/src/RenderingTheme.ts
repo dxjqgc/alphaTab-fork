@@ -1,6 +1,7 @@
 import { Color } from '@coderline/alphatab/model/Color';
 import { Font, FontStyle, FontWeight } from '@coderline/alphatab/model/Font';
 import { NotationElement } from '@coderline/alphatab/NotationSettings';
+import type { EngravingSettings } from '@coderline/alphatab/EngravingSettings';
 
 /**
  * Minimal interface for objects that can receive theme values.
@@ -163,8 +164,42 @@ export interface RenderingThemeDescriptor {
      * adjust the SMuFL metrics ({@link RenderingResources.engravingSettings}). Mismatched
      * metrics can cause symbol positioning artifacts, so a theme that ships a custom SMuFL
      * font family should be paired with matching engraving settings configured separately.
+     * Prefer {@link smuflFont} (which binds name + metrics atomically) when shipping a
+     * non-Bravura music font.
      */
     smuflFontFamilyName?: string;
+
+    /**
+     * Optional SMuFL font bundle binding a font family name to its matching
+     * {@link EngravingSettings} metrics.
+     *
+     * @remarks
+     * When present, {@link RenderingResources.applyFrom} sets BOTH
+     * {@link RenderingResources.smuflFontFamilyName} AND
+     * {@link RenderingResources.engravingSettings} from this bundle, so swapping a music
+     * font (e.g. Bravura to Petaluma) carries its metrics with it and avoids glyph
+     * positioning drift. This is the atomic alternative to setting {@link smuflFontFamilyName}
+     * alone (which leaves metrics at the Bravura default).
+     *
+     * Note: a host page that loads a webfont via `core.smuflFontSources` will still
+     * overwrite `smuflFontFamilyName` at load time (see BrowserUiFacade); this bundle
+     * takes effect only when the consumer has not loaded a webfont.
+     *
+     * @since 2.1
+     */
+    smuflFont?: RenderingThemeSmuflFont;
+}
+
+/**
+ * A music-font bundle pairing a SMuFL family name with its matching engraving metrics.
+ * @public
+ * @since 2.1
+ */
+export interface RenderingThemeSmuflFont {
+    /** The SMuFL font family name to use for music symbols. */
+    familyName: string;
+    /** The engraving metrics matching {@link familyName} (e.g. Bravura or Petaluma). */
+    engravingSettings: EngravingSettings;
 }
 
 // Shared font instances used across built-in themes
@@ -437,7 +472,8 @@ export class RenderingTheme {
             graceFont: patch.graceFont ?? parent.graceFont,
             numberedNotationFont: patch.numberedNotationFont ?? parent.numberedNotationFont,
             numberedNotationGraceFont: patch.numberedNotationGraceFont ?? parent.numberedNotationGraceFont,
-            smuflFontFamilyName: patch.smuflFontFamilyName ?? parent.smuflFontFamilyName
+            smuflFontFamilyName: patch.smuflFontFamilyName ?? parent.smuflFontFamilyName,
+            smuflFont: patch.smuflFont ?? parent.smuflFont
         };
 
         RenderingTheme.registry.set(name, descriptor);
