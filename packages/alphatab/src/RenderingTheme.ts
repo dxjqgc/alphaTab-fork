@@ -372,4 +372,75 @@ export class RenderingTheme {
         resources.applyFrom(theme);
         return true;
     }
+
+    /**
+     * Registers a theme that derives from an already-registered parent, inheriting
+     * its colors and fonts and overriding only the fields supplied in `patch`.
+     *
+     * @remarks
+     * This is the supported way to "theme on top of a theme" — e.g. a brand variant
+     * of `dark` that only swaps the foreground color. The parent's resolved
+     * {@link RenderingThemeDescriptor.tokens} and fonts are snapshot into the new
+     * descriptor at registration time (so later re-/un-registration of the parent
+     * does not silently change the derived theme). Built-in parents (`light`/
+     * `dark`/`sepia`) cannot be unregistered, so extending them is always safe.
+     *
+     * `patch.tokens`, when provided, is merged field-by-field over the parent's
+     * tokens (not a full replace) — omit a token to inherit the parent's value.
+     * Likewise `patch.elementFonts` entries are merged into the parent's font map.
+     *
+     * @param name The unique name for the derived theme. Replaces an existing theme
+     * with the same name (built-ins cannot be replaced).
+     * @param parentName The name of the registered theme to inherit from.
+     * @param patch The fields to override on top of the parent.
+     * @returns `true` if the parent was found and the derived theme was registered;
+     * `false` if the parent does not exist (nothing is registered).
+     * @since 2.1
+     */
+    public static extend(
+        name: string,
+        parentName: string,
+        patch: Partial<Omit<RenderingThemeDescriptor, 'name'>> & {
+            tokens?: Partial<RenderingThemeTokens>;
+        }
+    ): boolean {
+        const parent = RenderingTheme.registry.get(parentName);
+        if (!parent) {
+            return false;
+        }
+
+        // Merge tokens field-by-field so callers can override a single slot.
+        const tokens: RenderingThemeTokens = parent.tokens
+            ? { ...parent.tokens, ...patch.tokens }
+            : patch.tokens
+              ? (patch.tokens as RenderingThemeTokens)
+              : undefined!;
+
+        // Merge element-fonts: parent map (copied) overlaid with patch entries.
+        const elementFonts = new Map<NotationElement, Font>();
+        if (parent.elementFonts) {
+            for (const [k, v] of parent.elementFonts) {
+                elementFonts.set(k, v);
+            }
+        }
+        if (patch.elementFonts) {
+            for (const [k, v] of patch.elementFonts) {
+                elementFonts.set(k, v);
+            }
+        }
+
+        const descriptor: RenderingThemeDescriptor = {
+            name,
+            tokens,
+            elementFonts,
+            tablatureFont: patch.tablatureFont ?? parent.tablatureFont,
+            graceFont: patch.graceFont ?? parent.graceFont,
+            numberedNotationFont: patch.numberedNotationFont ?? parent.numberedNotationFont,
+            numberedNotationGraceFont: patch.numberedNotationGraceFont ?? parent.numberedNotationGraceFont,
+            smuflFontFamilyName: patch.smuflFontFamilyName ?? parent.smuflFontFamilyName
+        };
+
+        RenderingTheme.registry.set(name, descriptor);
+        return true;
+    }
 }
