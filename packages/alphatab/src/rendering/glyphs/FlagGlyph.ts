@@ -15,8 +15,10 @@ export class FlagGlyph extends MusicFontGlyph {
 
     public override paint(cx: number, cy: number, canvas: ICanvas): void {
         const c = canvas.color;
+        const t = canvas.colorToken;
         super.paint(cx, cy, canvas);
         canvas.color = c;
+        canvas.colorToken = t;
     }
 
     public static getSymbol(duration: Duration, direction: BeamDirection, isGrace: boolean): MusicFontSymbol {

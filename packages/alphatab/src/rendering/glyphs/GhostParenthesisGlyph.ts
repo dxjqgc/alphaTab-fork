@@ -24,8 +24,10 @@ export class GhostParenthesisGlyph extends Glyph {
 
     public override paint(cx: number, cy: number, canvas: ICanvas): void {
         const c = canvas.color;
+        const t = canvas.colorToken;
         if (this.colorOverride) {
             canvas.color = this.colorOverride;
+            canvas.colorToken = undefined;
         }
 
         if (this._isOpen) {
@@ -54,5 +56,6 @@ export class GhostParenthesisGlyph extends Glyph {
             );
         }
         canvas.color = c;
+        canvas.colorToken = t;
     }
 }

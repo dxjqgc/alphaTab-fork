@@ -18,6 +18,7 @@ export abstract class SvgCanvas implements ICanvas {
     public scale = 1;
 
     public color: Color = new Color(255, 255, 255, 0xff);
+    public colorToken?: string;
     public lineWidth: number = 1;
     public font: Font = new Font('Arial', 10, FontStyle.Plain);
     public textAlign: TextAlign = TextAlign.Left;
@@ -30,10 +31,108 @@ export abstract class SvgCanvas implements ICanvas {
         this.scale = this.settings.display.scale;
         this.buffer = `<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="${width | 0}px" height="${
             height | 0
-        }px" class="at-surface-svg">\n`;
+        }px" class="at-surface-svg" style="${SvgCanvas._buildThemeCssVariables(this.settings)}">\n`;
         this._currentPath = '';
         this._currentPathIsEmpty = true;
         this.textBaseline = TextBaseline.Top;
+    }
+
+    /**
+     * Builds the CSS custom-property declarations for the active theme, emitted as a
+     * `style` attribute on the `<svg>` root of every rendered partial.
+     *
+     * @remarks
+     * Each value is the concrete color currently held by the corresponding
+     * {@link RenderingResources} field (resolved from the active theme, if any, by
+     * {@link DisplaySettings.applyCurrentTheme}). Glyphs still emit concrete colors in
+     * this tier — the variables only make the theme's resolved palette referenceable from
+     * external CSS (`var(--at-foreground)`, etc.) and set up the resolution path used by
+     * the token-emission tier. Variables are declared per `<svg>` root (one per partial)
+     * so each chunk is self-contained and survives lazy re-rendering and shadow-DOM hosts.
+     *
+     * @since 2.1
+     */
+    protected static _buildThemeCssVariables(settings: Settings): string {
+        const r = settings.display.resources;
+        return [
+            `--at-foreground:${r.mainGlyphColor.rgba}`,
+            `--at-foreground-muted:${r.secondaryGlyphColor.rgba}`,
+            `--at-staff-line:${r.staffLineColor.rgba}`,
+            `--at-bar-separator:${r.barSeparatorColor.rgba}`,
+            `--at-bar-number:${r.barNumberColor.rgba}`,
+            `--at-score-info:${r.scoreInfoColor.rgba}`,
+            `--at-background:${r.backgroundColor.rgba}`
+        ].join(';');
+    }
+
+    /**
+     * The CSS value to emit for `fill:` when the current color is theme-tagged.
+     *
+     * @remarks
+     * When {@link colorToken} is set, returns `var(--at-${token})` so a CSS-variable
+     * theme change recolors the glyph instantly. When no token is in scope, returns
+     * `undefined` for the SVG default color (pure black, `#000000`) — preserving the
+     * historical byte-size optimization of omitting the fill declaration — and the
+     * concrete {@link color.rgba} otherwise. The token path always returns a value
+     * because the variable's default is CSS-controlled and cannot be assumed black.
+     *
+     * @since 2.1
+     */
+    protected _fillCssValue(): string | undefined {
+        if (this.colorToken) {
+            return `var(--at-${this.colorToken})`;
+        }
+        return this.color.rgba === Color.BlackRgb ? undefined : this.color.rgba;
+    }
+
+    /**
+     * The CSS value to emit for `stroke:` when the current color is theme-tagged.
+     *
+     * @remarks
+     * Unlike {@link _fillCssValue}, the stroke path has no historical `#000000`-skip
+     * (it always emitted a concrete `stroke`), so this always returns a value.
+     *
+     * @since 2.1
+     */
+    protected _strokeCssValue(): string {
+        if (this.colorToken) {
+            return `var(--at-${this.colorToken})`;
+        }
+        return this.color.rgba;
+    }
+
+    /**
+     * A complete `fill` declaration for shape elements (rects, etc.) — either a
+     * `style="fill:var(--at-${token})"` attribute (token-tagged color), a concrete
+     * `fill="<rgba>"` attribute, or an empty string when the color is the SVG default
+     * (pure black) and no token is set. Consumers append the returned string verbatim
+     * after the element's geometry attributes.
+     *
+     * @since 2.1
+     */
+    protected _fillDeclaration(): string {
+        const value = this._fillCssValue();
+        if (value === undefined) {
+            return '';
+        }
+        if (this.colorToken) {
+            return ` style="fill:${value}"`;
+        }
+        return ` fill="${value}"`;
+    }
+
+    /**
+     * A complete `stroke` declaration for shape elements (rects, etc.). The stroke
+     * path has no default-color skip, so this is never empty.
+     *
+     * @since 2.1
+     */
+    protected _strokeDeclaration(): string {
+        const value = this._strokeCssValue();
+        if (this.colorToken) {
+            return ` style="stroke:${value}"`;
+        }
+        return ` stroke="${value}"`;
     }
 
     public beginGroup(identifier: string): void {
@@ -53,7 +152,7 @@ export abstract class SvgCanvas implements ICanvas {
         if (w > 0) {
             this.buffer += `<rect x="${x * this.scale}" y="${y * this.scale}" width="${
                 w * this.scale
-            }" height="${h * this.scale}" fill="${this.color.rgba}" />\n`;
+            }" height="${h * this.scale}"${this._fillDeclaration()} />\n`;
         }
     }
 
@@ -61,7 +160,7 @@ export abstract class SvgCanvas implements ICanvas {
         const blurOffset = (this.lineWidth * this.scale) % 2 === 0 ? 0 : 0.5;
         this.buffer += `<rect x="${x * this.scale + blurOffset}" y="${y * this.scale + blurOffset}" width="${
             w * this.scale
-        }" height="${h * this.scale}" stroke="${this.color.rgba}"`;
+        }" height="${h * this.scale}"${this._strokeDeclaration()}`;
         if (this.lineWidth !== 1) {
             this.buffer += ` stroke-width="${this.lineWidth * this.scale}"`;
         }
@@ -126,10 +225,15 @@ export abstract class SvgCanvas implements ICanvas {
     public fill(): void {
         if (!this._currentPathIsEmpty) {
             this.buffer += `<path d="${this._currentPath}"`;
-            if (this.color.rgba !== '#000000') {
-                this.buffer += ` fill="${this.color.rgba}"`;
+            const fill = this._fillCssValue();
+            if (this.colorToken) {
+                this.buffer += ` style="fill:${fill}; stroke: none"/>`;
+            } else {
+                if (fill !== undefined) {
+                    this.buffer += ` fill="${fill}"`;
+                }
+                this.buffer += ' style="stroke: none"/>';
             }
-            this.buffer += ' style="stroke: none"/>';
         }
         this._currentPath = '';
         this._currentPathIsEmpty = true;
@@ -137,11 +241,19 @@ export abstract class SvgCanvas implements ICanvas {
 
     public stroke(): void {
         if (!this._currentPathIsEmpty) {
-            let s: string = `<path d="${this._currentPath}" stroke="${this.color.rgba}"`;
+            let s: string = `<path d="${this._currentPath}"`;
+            if (this.colorToken) {
+                s += ` style="stroke:${this._strokeCssValue()}; fill: none"`;
+            } else {
+                s += ` stroke="${this._strokeCssValue()}"`;
+            }
             if (this.lineWidth !== 1 || this.scale !== 1) {
                 s += ` stroke-width="${this.lineWidth * this.scale}"`;
             }
-            s += ' style="fill: none" />';
+            if (!this.colorToken) {
+                s += ' style="fill: none"';
+            }
+            s += ' />';
             this.buffer += s;
         }
         this._currentPath = '';
@@ -152,11 +264,17 @@ export abstract class SvgCanvas implements ICanvas {
         if (text === '') {
             return;
         }
+        const fill = this._fillCssValue();
         let s: string = `<text x="${x * this.scale}" y="${
             y * this.scale
-        }" style='stroke: none; font:${this.font.toCssString(this.settings.display.scale)}; ${this.getSvgBaseLine()}'`;
-        if (this.color.rgba !== '#000000') {
-            s += ` fill="${this.color.rgba}"`;
+        }" style='stroke: none; font:${this.font.toCssString(this.settings.display.scale)}; ${this.getSvgBaseLine()}`;
+        if (this.colorToken) {
+            s += `; fill:${fill}'`;
+        } else {
+            s += `'`;
+            if (fill !== undefined) {
+                s += ` fill="${fill}"`;
+            }
         }
         if (this.textAlign !== TextAlign.Left) {
             s += ` text-anchor="${this.getSvgTextAlignment(this.textAlign)}"`;

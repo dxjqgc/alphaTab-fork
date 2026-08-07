@@ -75,6 +75,25 @@ export interface ICanvas {
 
     color: Color;
 
+    /**
+     * The semantic theme-token name the current {@link color} corresponds to, if any.
+     *
+     * @remarks
+     * This is an optional, SVG-only companion to {@link color}. When the renderer sets
+     * `color` from a named {@link RenderingResources} field (e.g. `mainGlyphColor` →
+     * `'foreground'`), it also sets `colorToken` to that token name. The SVG backend may
+     * then emit `style="fill:var(--at-${colorToken})"` instead of a concrete color, so a
+     * CSS-variable theme change can recolor the output instantly without re-rendering.
+     *
+     * Raster backends (Skia, HTML5 2D) MUST ignore this field — {@link color} always
+     * carries a concrete `Color` with real r/g/b/a, and `colorToken` is metadata only.
+     * Set to `undefined` when the current color is a temporary/override value that
+     * does not correspond to a theme token (e.g. a per-glyph `colorOverride`).
+     *
+     * @since 2.1
+     */
+    colorToken?: string;
+
     lineWidth: number;
 
     fillRect(x: number, y: number, w: number, h: number): void;

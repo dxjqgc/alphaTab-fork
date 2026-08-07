@@ -28,8 +28,10 @@ export class PercussionNoteHeadGlyph extends NoteHeadGlyphBase {
 
     public override paint(cx: number, cy: number, canvas: ICanvas): void {
         const c = canvas.color;
+        const t = canvas.colorToken;
         if (this.colorOverride) {
             canvas.color = this.colorOverride!;
+            canvas.colorToken = undefined;
         }
 
         const offset: number = this._isGrace ? 1 : 0;
@@ -56,6 +58,7 @@ export class PercussionNoteHeadGlyph extends NoteHeadGlyphBase {
             );
         }
         canvas.color = c;
+        canvas.colorToken = t;
     }
 
     public override doLayout(): void {

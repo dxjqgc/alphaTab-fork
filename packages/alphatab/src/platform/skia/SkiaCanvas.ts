@@ -159,6 +159,13 @@ export class SkiaCanvas implements ICanvas {
         this._canvas.color = SkiaCanvas._alphaSkia.AlphaSkiaCanvas.rgbaToColor(value.r, value.g, value.b, value.a);
     }
 
+    /**
+     * SVG-only theme-token metadata; the Skia raster backend ignores it and always
+     * renders the concrete {@link color}. See {@link ICanvas.colorToken}.
+     * @since 2.1
+     */
+    public colorToken?: string;
+
     public get lineWidth(): number {
         return this._lineWidth;
     }

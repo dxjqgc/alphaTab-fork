@@ -36,8 +36,10 @@ export class MusicFontGlyph extends EffectGlyph {
         }
 
         const c = canvas.color;
+        const t = canvas.colorToken;
         if (this.colorOverride) {
             canvas.color = this.colorOverride!;
+            canvas.colorToken = undefined;
         }
         canvas.fillMusicFontSymbol(
             cx + this.x + this.offsetX,
@@ -47,6 +49,7 @@ export class MusicFontGlyph extends EffectGlyph {
             this.center
         );
         canvas.color = c;
+        canvas.colorToken = t;
     }
 }
 
@@ -99,8 +102,10 @@ export class MusicFontTextGlyph extends EffectGlyph {
         }
 
         const c = canvas.color;
+        const t = canvas.colorToken;
         if (this.colorOverride) {
             canvas.color = this.colorOverride!;
+            canvas.colorToken = undefined;
         }
         canvas.fillMusicFontSymbols(
             cx + this.x + this.offsetX,
@@ -110,5 +115,6 @@ export class MusicFontTextGlyph extends EffectGlyph {
             this.center
         );
         canvas.color = c;
+        canvas.colorToken = t;
     }
 }

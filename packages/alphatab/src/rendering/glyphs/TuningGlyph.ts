@@ -36,11 +36,14 @@ export class TuningGlyph extends GlyphGroup {
 
     public override paint(cx: number, cy: number, canvas: ICanvas): void {
         const c = canvas.color;
+        const t = canvas.colorToken;
         if (this.colorOverride) {
             canvas.color = this.colorOverride!;
+            canvas.colorToken = undefined;
         }
         super.paint(cx, cy, canvas);
         canvas.color = c;
+        canvas.colorToken = t;
     }
 
     private _createGlyphs(tuning: Tuning): void {

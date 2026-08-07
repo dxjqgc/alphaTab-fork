@@ -230,8 +230,10 @@ export class TabBendGlyph extends Glyph implements ITieGlyph {
 
     public override paint(cx: number, cy: number, canvas: ICanvas): void {
         const color: Color = canvas.color;
+        const t = canvas.colorToken;
         if (this._notes.length > 1) {
             canvas.color = this.renderer.resources.secondaryGlyphColor;
+            canvas.colorToken = undefined;
         }
         for (const note of this._notes) {
             const startNoteRenderer = this.renderer as TabBarRenderer;
@@ -316,6 +318,7 @@ export class TabBendGlyph extends Glyph implements ITieGlyph {
             );
 
             canvas.color = color;
+            canvas.colorToken = t;
         }
     }
 

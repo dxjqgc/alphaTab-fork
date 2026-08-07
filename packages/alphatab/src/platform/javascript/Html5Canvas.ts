@@ -79,6 +79,13 @@ export class Html5Canvas implements ICanvas {
         this._context.fillStyle = value.rgba;
     }
 
+    /**
+     * SVG-only theme-token metadata; the HTML5 2D backend ignores it and always
+     * renders the concrete {@link color}. See {@link ICanvas.colorToken}.
+     * @since 2.1
+     */
+    public colorToken?: string;
+
     public get lineWidth(): number {
         return this._lineWidth;
     }
