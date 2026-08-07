@@ -140,4 +140,28 @@ export interface RenderingResourcesJson {
      * @since 2.1
      */
     backgroundColor?: ColorJson;
+    /**
+     * The color applied to highlighted (selection/playback-active) beats.
+     * @defaultValue `rgb(0, 0, 0)` (same as {@link mainGlyphColor})
+     * @remarks
+     * Emitted as the `--at-selection` CSS custom property on the `<svg>` root. The default
+     * `.at-highlight` rule redefines `--at-foreground` to `var(--at-selection)` on highlighted
+     * beat groups, so toggling the `at-highlight` class (done by the playback cursor) recolors
+     * the beat instantly without re-render. Resolved from {@link RenderingThemeTokens.selection}
+     * when a theme provides it, falling back to {@link mainGlyphColor} otherwise.
+     * @since 2.1
+     */
+    selectionColor?: ColorJson;
+    /**
+     * The accent color for the playback cursor. Emitted as `--at-playback`.
+     * @defaultValue `rgb(0, 0, 0)` (same as {@link mainGlyphColor})
+     * @since 2.1
+     */
+    playbackColor?: ColorJson;
+    /**
+     * The color for error/invalid state glyphs. Emitted as `--at-error`.
+     * @defaultValue `rgb(0, 0, 0)` (same as {@link mainGlyphColor})
+     * @since 2.1
+     */
+    errorColor?: ColorJson;
 }

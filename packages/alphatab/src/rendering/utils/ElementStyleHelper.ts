@@ -31,7 +31,10 @@ export class ElementStyleHelper {
         barSeparator: 'bar-separator',
         barNumber: 'bar-number',
         scoreInfo: 'score-info',
-        background: 'background'
+        background: 'background',
+        selection: 'selection',
+        playback: 'playback',
+        error: 'error'
     } as const;
 
     public static score(

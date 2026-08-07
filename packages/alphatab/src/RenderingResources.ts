@@ -353,6 +353,33 @@ export class RenderingResources {
      */
     public backgroundColor: Color = new Color(255, 255, 255, 0xff);
 
+    /**
+     * The color applied to highlighted (selection/playback-active) beats.
+     * @defaultValue `rgb(0, 0, 0)` (same as {@link mainGlyphColor})
+     * @remarks
+     * Emitted as the `--at-selection` CSS custom property on the `<svg>` root. The default
+     * `.at-highlight` rule redefines `--at-foreground` to `var(--at-selection)` on highlighted
+     * beat groups, so toggling the `at-highlight` class (done by the playback cursor) recolors
+     * the beat instantly without re-render. Resolved from {@link RenderingThemeTokens.selection}
+     * when a theme provides it, falling back to {@link mainGlyphColor} otherwise.
+     * @since 2.1
+     */
+    public selectionColor: Color = new Color(0, 0, 0, 0xff);
+
+    /**
+     * The accent color for the playback cursor. Emitted as `--at-playback`.
+     * @defaultValue `rgb(0, 0, 0)` (same as {@link mainGlyphColor})
+     * @since 2.1
+     */
+    public playbackColor: Color = new Color(0, 0, 0, 0xff);
+
+    /**
+     * The color for error/invalid state glyphs. Emitted as `--at-error`.
+     * @defaultValue `rgb(0, 0, 0)` (same as {@link mainGlyphColor})
+     * @since 2.1
+     */
+    public errorColor: Color = new Color(0, 0, 0, 0xff);
+
     public constructor() {
         for (const [k, v] of RenderingResources.defaultFonts) {
             this.elementFonts.set(k, v.withSize(v.size));
@@ -397,6 +424,13 @@ export class RenderingResources {
             this.scoreInfoColor = theme.scoreInfoColor!;
             this.backgroundColor = theme.backgroundColor!;
         }
+        // State colors are token-only (no terminal equivalents). When the theme provides
+        // them, use them; otherwise fall back to the just-resolved foreground so every
+        // theme gets sensible state colors without having to declare them.
+        const resolvedTokens = theme.tokens;
+        this.selectionColor = resolvedTokens?.selection ?? this.mainGlyphColor;
+        this.playbackColor = resolvedTokens?.playback ?? this.mainGlyphColor;
+        this.errorColor = resolvedTokens?.error ?? this.mainGlyphColor;
         this.tablatureFont = theme.tablatureFont.withSize(theme.tablatureFont.size);
         this.graceFont = theme.graceFont.withSize(theme.graceFont.size);
         this.numberedNotationFont = theme.numberedNotationFont.withSize(theme.numberedNotationFont.size);

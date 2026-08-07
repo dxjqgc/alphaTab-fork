@@ -61,7 +61,10 @@ export abstract class SvgCanvas implements ICanvas {
             `--at-bar-separator:${r.barSeparatorColor.rgba}`,
             `--at-bar-number:${r.barNumberColor.rgba}`,
             `--at-score-info:${r.scoreInfoColor.rgba}`,
-            `--at-background:${r.backgroundColor.rgba}`
+            `--at-background:${r.backgroundColor.rgba}`,
+            `--at-selection:${r.selectionColor.rgba}`,
+            `--at-playback:${r.playbackColor.rgba}`,
+            `--at-error:${r.errorColor.rgba}`
         ].join(';');
     }
 

@@ -540,6 +540,15 @@ export class BrowserUiFacade implements IUiFacade<unknown> {
                 .at-surface-svg text {
                     dominant-baseline: alphabetic;
                     white-space:pre;
+                }
+                /* Playback/selection highlight: redefine --at-foreground (not fill) so that
+                   glyph output from the token-emission tier (style fill var(--at-foreground))
+                   re-resolves to the selection color on highlighted beats. The beat-highlight
+                   mechanism toggles the at-highlight class on <g class="b{id}"> groups; CSS
+                   custom properties cascade through the style attribute, so this recolors
+                   instantly without re-render. */
+                .at-surface-svg .at-highlight {
+                    --at-foreground: var(--at-selection, var(--at-foreground));
                 }`;
 
             styleElement.innerHTML = css;

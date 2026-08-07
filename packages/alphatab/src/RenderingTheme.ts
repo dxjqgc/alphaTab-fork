@@ -16,6 +16,9 @@ export interface IThemeableResources {
     secondaryGlyphColor: Color;
     scoreInfoColor: Color;
     backgroundColor: Color;
+    selectionColor: Color;
+    playbackColor: Color;
+    errorColor: Color;
     elementFonts: Map<NotationElement, Font>;
     tablatureFont: Font;
     graceFont: Font;
@@ -44,6 +47,11 @@ export interface IThemeableResources {
  *   - `barNumber`       → `barNumberColor`        (bar index numerals)
  *   - `scoreInfo`       → `scoreInfoColor`        (title/artist/copyright header)
  *
+ * The optional state tokens (`selection`, `playback`, `error`) resolve to the
+ * {@link RenderingResources} state-color fields and are emitted as `--at-selection`
+ * etc. on the `<svg>` root. They default to {@link foreground} when omitted, so a
+ * theme can ship just the seven palette tokens and still get sensible state colors.
+ *
  * @public
  * @since 2.1
  */
@@ -62,6 +70,35 @@ export interface RenderingThemeTokens {
     barNumber: Color;
     /** Score header info color — title, artist, copyright (resolves to {@link RenderingResources.scoreInfoColor}). */
     scoreInfo: Color;
+
+    /**
+     * Optional selection/active-state color for highlighted beats during playback.
+     *
+     * @remarks
+     * Resolves to {@link RenderingResources.selectionColor} and is emitted as
+     * `--at-selection` on the `<svg>` root. The default `.at-highlight` rule
+     * redefines `--at-foreground` to this value on highlighted beats, so the
+     * existing beat-highlight mechanism (which toggles the `at-highlight` class
+     * on `<g class="b{id}">` groups) recolors instantly without re-render. When
+     * omitted, falls back to {@link foreground}.
+     *
+     * @since 2.1
+     */
+    selection?: Color;
+
+    /**
+     * Optional playback-cursor accent color. Emitted as `--at-playback`; falls back
+     * to {@link foreground} when omitted. Reserved for cursor styling.
+     * @since 2.1
+     */
+    playback?: Color;
+
+    /**
+     * Optional error/invalid color. Emitted as `--at-error`; falls back to
+     * {@link foreground} when omitted. Reserved for future error-state glyphs.
+     * @since 2.1
+     */
+    error?: Color;
 }
 
 /**
