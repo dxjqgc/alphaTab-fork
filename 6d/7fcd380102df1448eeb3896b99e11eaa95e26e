@@ -1,0 +1,23 @@
+packages/alphatab/CLAUDE.md
+  9b666cdd1952bca1 51-62,66,70,72,75-113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "6d7fcd380102df1448eeb3896b99e11eaa95e26e",
+  "prompts": {
+    "9b666cdd1952bca1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "84a7a9d0-b4eb-4db2-a8da-904398478a76",
+        "model": "xopglm52"
+      },
+      "human_author": "rhett.hu",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 134,
+      "overriden_lines": 0
+    }
+  }
+}
