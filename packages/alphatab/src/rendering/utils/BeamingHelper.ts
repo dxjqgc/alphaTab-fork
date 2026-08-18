@@ -305,11 +305,11 @@ export class BeamingHelper {
     }
 
     public get beatOfLowestNote(): Beat {
-        return this.lowestNoteInHelper!.beat;
+        return this.lowestNoteInHelper?.beat ?? this.beats[0] ?? this.restBeats[0];
     }
 
     public get beatOfHighestNote(): Beat {
-        return this.highestNoteInHelper!.beat;
+        return this.highestNoteInHelper?.beat ?? this.beats[0] ?? this.restBeats[0];
     }
 
     public drawingInfos: Map<BeamDirection, BeamingHelperDrawInfo> = new Map<BeamDirection, BeamingHelperDrawInfo>();
