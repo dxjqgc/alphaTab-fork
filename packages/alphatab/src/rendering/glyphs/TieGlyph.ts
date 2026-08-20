@@ -176,6 +176,21 @@ export abstract class TieGlyph extends Glyph implements ITieGlyph {
                 this.renderer.smuflMetrics.tieHeight
             );
         } else {
+            // Local fork patch: render "H"/"P" text on the tab slur when this
+            // tie connects a hammer-on / pull-off pair. alphaTab upstream draws
+            // only the arc (no label); our guitar-tab users expect the marker.
+            // Uses isHammerPullOrigin (a serialized boolean that survives worker
+            // transport) rather than hammerPullDestination (a Note pointer that
+            // JsonConverter drops — worker rebuilds it via finish, but the
+            // rebuilt object may not be the same reference as the slur's endNote,
+            // so reference equality would miss it).
+            let slurText: string | undefined = undefined;
+            const noteTie = this as unknown as { startNote?: Note; endNote?: Note };
+            const s = noteTie.startNote;
+            const e = noteTie.endNote;
+            if (s && e && (s.isHammerPullOrigin || e.isHammerPullOrigin)) {
+                slurText = e.fret > s.fret ? 'H' : 'P';
+            }
             TieGlyph.paintTie(
                 canvas,
                 1,
@@ -185,7 +200,8 @@ export abstract class TieGlyph extends Glyph implements ITieGlyph {
                 cy + this._endY,
                 this.tieDirection === BeamDirection.Down,
                 this._tieHeight,
-                this.renderer.smuflMetrics.tieMidpointThickness
+                this.renderer.smuflMetrics.tieMidpointThickness,
+                slurText
             );
         }
     }
