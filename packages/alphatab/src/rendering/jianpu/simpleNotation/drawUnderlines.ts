@@ -17,7 +17,7 @@ function paintUnderlineBar(canvas: ICanvas, x1: number, y1: number, x2: number, 
 
 export const DEFAULT_UNDERLINE_STYLE: JianpuUnderlinePaintStyle = {
     lineSpacing: 3,
-    lineThickness: 1,
+    lineThickness: 1.5,
     edgeInset: 3,
     baseYOffset: 0
 };

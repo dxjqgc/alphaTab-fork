@@ -31,8 +31,9 @@ import type { BeamingHelper, BeamingHelperDrawInfo } from '@coderline/alphatab/r
 import { ElementStyleHelper } from '@coderline/alphatab/rendering/utils/ElementStyleHelper';
 import { buildJianpuDrawNotes, beatValueFromDenominator } from '@coderline/alphatab/rendering/jianpu/simpleNotation/eventAdapter';
 import { groupNotesForBeam } from '@coderline/alphatab/rendering/jianpu/simpleNotation/groupNotesForBeam';
-import { drawUnderlineGroup } from '@coderline/alphatab/rendering/jianpu/simpleNotation/drawUnderlines';
+import { DEFAULT_UNDERLINE_STYLE, drawUnderlineGroup } from '@coderline/alphatab/rendering/jianpu/simpleNotation/drawUnderlines';
 import { drawSingleTieLine } from '@coderline/alphatab/rendering/jianpu/simpleNotation/drawTieLine';
+import { jianpuEventUnderlineCount } from '@coderline/alphatab/rendering/jianpu/simpleNotation/durationUtils';
 import type { JianpuEventLayoutCoords } from '@coderline/alphatab/rendering/jianpu/simpleNotation/eventAdapter';
 import type { JianpuDrawNote } from '@coderline/alphatab/rendering/jianpu/simpleNotation/types';
 
@@ -97,12 +98,39 @@ export class NumberedBarRenderer extends LineBarRenderer {
             return;
         }
         const padding = this.settings.display.lyricLinesPaddingBetween;
-        const y = this._maxJianpuBottom + padding;
+        // 歌词基线必须避开下方减时线：减时线从 _simpleNotationUnderlineBaseY()
+        // 起向下分层堆叠，层数越多下沿越低，否则 2 条以上减时线会与歌词重叠。
+        const lyricBaseline = Math.max(this._maxJianpuBottom, this._lowestDurationBarBottom()) + padding;
         for (const { beat, glyph } of this._jianpuLyrics) {
             // 绝对 X 坐标：对应 Jianpu 数字的中线
             glyph.x = this.getBeatX(beat, BeatXPosition.MiddleNotes);
-            glyph.y = y;
+            glyph.y = lyricBaseline;
         }
+    }
+
+    /**
+     * 当前小节最低减时线的下沿 Y（与 drawUnderlineGroup 几何一致）。
+     * 无减时线时返回 -10000，表示不构成约束。
+     */
+    private _lowestDurationBarBottom(): number {
+        const minGap = this.smuflMetrics.numberedBarRendererBarSpacing;
+        const { lineSpacing, lineThickness } = DEFAULT_UNDERLINE_STYLE;
+        let maxUnderlineCount = 0;
+        for (const event of this.bar.jianpuEvents) {
+            if (!event) {
+                continue;
+            }
+            const count = jianpuEventUnderlineCount(event);
+            if (count > maxUnderlineCount) {
+                maxUnderlineCount = count;
+            }
+        }
+        if (maxUnderlineCount <= 0) {
+            return -10000;
+        }
+        const baseY = this._maxJianpuBeamingBottom + minGap;
+        // 第 maxUnderlineCount 层下沿 = baseY + lineSpacing*(N-1) + lineThickness
+        return baseY + lineSpacing * (maxUnderlineCount - 1) + lineThickness;
     }
 
     public constructor(renderer: ScoreRenderer, bar: Bar) {
@@ -311,7 +339,9 @@ export class NumberedBarRenderer extends LineBarRenderer {
             }
 
             // 为每个带 lyric 的 JianpuEvent 创建歌词 glyph（具体坐标在绘制前根据最终布局再计算）
-            const lyricsFont = this.resources.elementFonts.get(NotationElement.EffectLyrics);
+            const baseLyricsFont = this.resources.elementFonts.get(NotationElement.EffectLyrics);
+            // 简谱行内歌词比通用歌词字号放大 1.5 倍
+            const lyricsFont = baseLyricsFont ? baseLyricsFont.withSize(baseLyricsFont.size * 1.5) : undefined;
             if (lyricsFont) {
                 for (let i = 0; i < this._jianpuBeats.length && i < this.bar.jianpuEvents.length; i++) {
                     const event = this.bar.jianpuEvents[i];
