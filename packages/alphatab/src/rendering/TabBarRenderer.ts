@@ -75,7 +75,15 @@ export class TabBarRenderer extends LineBarRenderer {
     }
 
     public override getNoteLine(note: Note): number {
-        return this.bar.staff.tuning.length - note.string;
+        // Guitar-tab convention: string 1 = high E = top line, string 6 = low E
+        // = bottom line. alphaTab's default (`tuning.length - note.string`)
+        // puts string 1 on the BOTTOM (low-pitch-string-first layout). We flip
+        // it so string N sits on line N-1 (0=top). NOTE: this only changes the
+        // VISUAL line — pitch still comes from getStringTuning (tuning array).
+        // The staff tuning in createSimpleScore is [40,45,50,55,59,64] (low→high),
+        // and getStringTuning uses `tuning[length-(noteString-1)-1]`, so
+        // note.string=1 → tuning[5]=64=high E (correct pitch on the top line).
+        return note.string - 1;
     }
 
     public minString = Number.NaN;
@@ -95,7 +103,9 @@ export class TabBarRenderer extends LineBarRenderer {
                 if (noteNumbers) {
                     for (const [str, noteNumber] of noteNumbers.notesPerString) {
                         if (!noteNumber.isEmpty) {
-                            spaces[tuning.length - str].push(
+                            // Match getNoteLine's flipped direction: string N →
+                            // line N-1 (so string 1 = top line = index 0).
+                            spaces[str - 1].push(
                                 new Float32Array([
                                     this.beatGlyphsStart + bg.x + notes.x + noteNumbers!.x - padding,
                                     noteNumbers!.width + padding * 2
