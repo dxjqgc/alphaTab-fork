@@ -58,18 +58,8 @@ export class TabBrushGlyph extends Glyph {
             } else if (this._beat.brushType === BrushType.ArpeggioUp) {
                 const glyph: NoteVibratoGlyph = this._noteVibratoGlyph!;
 
-                // Wavy line spans staff top..(staff bottom - arrowSize) so the
-                // wave ends where the arrowhead base sits.
-                const lineStartY: number = staffTopY;
-                const lineEndY: number = staffBottomY - arrowSize;
-                glyph.width = Math.abs(lineEndY - lineStartY);
-
-                canvas.beginRotate(cx + this.x, lineEndY, -90);
-                glyph.paint(0, (this.width - glyph.height) / 2, canvas);
-                canvas.endRotate();
-            } else if (this._beat.brushType === BrushType.ArpeggioDown) {
-                const glyph: NoteVibratoGlyph = this._noteVibratoGlyph!;
-
+                // Wave spans (staff top + arrowSize)..staff bottom so it meets
+                // the base of the ▼ drawn at the bottom.
                 const lineStartY: number = staffTopY + arrowSize;
                 const lineEndY: number = staffBottomY;
                 glyph.width = Math.abs(lineEndY - lineStartY);
@@ -77,23 +67,38 @@ export class TabBrushGlyph extends Glyph {
                 canvas.beginRotate(cx + this.x, lineStartY, 90);
                 glyph.paint(0, - (this.width - glyph.height / 2), canvas);
                 canvas.endRotate();
+            } else if (this._beat.brushType === BrushType.ArpeggioDown) {
+                const glyph: NoteVibratoGlyph = this._noteVibratoGlyph!;
+
+                // Wave spans staff top..(staff bottom - arrowSize) so it meets
+                // the base of the ▲ drawn at the top.
+                const lineStartY: number = staffTopY;
+                const lineEndY: number = staffBottomY - arrowSize;
+                glyph.width = Math.abs(lineEndY - lineStartY);
+
+                canvas.beginRotate(cx + this.x, lineEndY, -90);
+                glyph.paint(0, (this.width - glyph.height) / 2, canvas);
+                canvas.endRotate();
             }
-            // Arrowhead apex points OUTWARD (away from the chord).
-            // For BrushDown (▼), apex sits below the staff bottom; for
-            // BrushUp (▲), apex sits above the staff top. The base of the
-            // triangle is the edge closer to the chord.
+            // Arrow direction follows the Chinese guitar-tab convention where
+            // the arrow points in the direction of motion ON the tab (strings
+            // are drawn 1=top .. 6=bottom): a down-stroke sweeps low->high
+            // strings (bottom->top on screen), so BrushDown gets a ▲ ABOVE the
+            // staff top; an up-stroke sweeps high->low (top->bottom) and gets
+            // a ▼ BELOW the staff bottom. This is purely visual — MIDI playback
+            // order comes from MidiFileGenerator._fillBrushInfo and is untouched.
             if (this._beat.brushType === BrushType.BrushUp || this._beat.brushType === BrushType.ArpeggioUp) {
-                canvas.beginPath();
-                canvas.moveTo(arrowX, staffTopY - arrowSize);
-                canvas.lineTo(arrowX + arrowSize / 2, staffTopY);
-                canvas.lineTo(arrowX - arrowSize / 2, staffTopY);
-                canvas.closePath();
-                canvas.fill();
-            } else {
                 canvas.beginPath();
                 canvas.moveTo(arrowX, staffBottomY + arrowSize);
                 canvas.lineTo(arrowX + arrowSize / 2, staffBottomY);
                 canvas.lineTo(arrowX - arrowSize / 2, staffBottomY);
+                canvas.closePath();
+                canvas.fill();
+            } else {
+                canvas.beginPath();
+                canvas.moveTo(arrowX, staffTopY - arrowSize);
+                canvas.lineTo(arrowX + arrowSize / 2, staffTopY);
+                canvas.lineTo(arrowX - arrowSize / 2, staffTopY);
                 canvas.closePath();
                 canvas.fill();
             }
