@@ -6,3 +6,6 @@ temp/
 *.user
 *.tgz
 /playground/
+
+# Claude Flow working state
+.claude-flow/
