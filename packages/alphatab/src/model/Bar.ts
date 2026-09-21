@@ -317,21 +317,21 @@ export class Bar {
 
     /**
      * 本小节内已验证的连音线（dest 必须为 origin + 1）。
-     * @internal
+     * 前端 jianpuBuilder 会写入这些字段驱动弧顶连音线渲染，属于公开 API。
      * @json_ignore
      */
     public jianpuTiePairs: Array<{ origin: number; dest: number }> = [];
 
     /**
      * 跨小节连音终点 event 下标（承接 staff 级 pendingTieOriginIndex）。
-     * @internal
+     * 前端 jianpuBuilder 会写入这些字段驱动弧顶连音线渲染，属于公开 API。
      * @json_ignore
      */
     public jianpuCrossBarTieDestIndex: number | null = null;
 
     /**
      * 本小节末仍延续到下一小节的连音起点 event 下标（无则 null）。
-     * @internal
+     * 前端 jianpuBuilder 会写入这些字段驱动弧顶连音线渲染，属于公开 API。
      * @json_ignore
      */
     public jianpuPendingTieOriginIndex: number | null = null;
