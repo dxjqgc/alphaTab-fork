@@ -10,7 +10,7 @@ import { Note } from '@coderline/alphatab/model/Note';
 import { Voice } from '@coderline/alphatab/model/Voice';
 import { NotationElement } from '@coderline/alphatab/NotationSettings';
 import type { ICanvas } from '@coderline/alphatab/platform/ICanvas';
-import { TextAlign } from '@coderline/alphatab/platform/ICanvas';
+import { TextAlign, TextBaseline } from '@coderline/alphatab/platform/ICanvas';
 import { BeatXPosition } from '@coderline/alphatab/rendering/BeatXPosition';
 import type { BeatContainerGlyphBase } from '@coderline/alphatab/rendering/glyphs/BeatContainerGlyph';
 import { BarLineGlyph } from '@coderline/alphatab/rendering/glyphs/BarLineGlyph';
@@ -33,7 +33,7 @@ import { buildJianpuDrawNotes, beatValueFromDenominator } from '@coderline/alpha
 import { groupNotesForBeam } from '@coderline/alphatab/rendering/jianpu/simpleNotation/groupNotesForBeam';
 import { DEFAULT_UNDERLINE_STYLE, drawUnderlineGroup } from '@coderline/alphatab/rendering/jianpu/simpleNotation/drawUnderlines';
 import { drawSingleTieLine } from '@coderline/alphatab/rendering/jianpu/simpleNotation/drawTieLine';
-import { jianpuEventUnderlineCount } from '@coderline/alphatab/rendering/jianpu/simpleNotation/durationUtils';
+import { jianpuEventHasTuplet, jianpuEventUnderlineCount } from '@coderline/alphatab/rendering/jianpu/simpleNotation/durationUtils';
 import type { JianpuEventLayoutCoords } from '@coderline/alphatab/rendering/jianpu/simpleNotation/eventAdapter';
 import type { JianpuDrawNote } from '@coderline/alphatab/rendering/jianpu/simpleNotation/types';
 
@@ -214,6 +214,11 @@ export class NumberedBarRenderer extends LineBarRenderer {
             }
             beat.duration = event.duration;
             beat.dots = event.dots;
+            // 注意：不把 tuplet 字段透传到假 Beat。BeatContainerGlyph.isFirstOfTupletGroup
+            // 在 hasTuplet && tupletGroup===null 时会空引用（MultiVoiceContainerGlyph.addGlyph
+            // 对每个 glyph 求值），而简谱路径不调 finishTuplet（TupletGroup 渲染链依赖
+            // beaming 几何，不适用）。"3" 标记由 _paintSimpleNotationTuplets 按 event 自绘，
+            // 布局/MIDI 时值由下方 ticks 折算 + 真 voice beats 的 tuplet 字段保证。
             if (event.splitBeamAfter) {
                 beat.beamingMode = BeatBeamingMode.ForceSplitToNext;
             }
@@ -235,6 +240,10 @@ export class NumberedBarRenderer extends LineBarRenderer {
             let ticks = MidiUtils.toTicks(beat.duration);
             for (let dot = 0; dot < beat.dots; dot++) {
                 ticks = MidiUtils.applyDot(ticks, false);
+            }
+            // tuplet 折算（3:2 三连音 eighth → 320 tick），与 jianpuEventTicks 一致
+            if (jianpuEventHasTuplet(event)) {
+                ticks = MidiUtils.applyTuplet(ticks, event.tupletNumerator, event.tupletDenominator);
             }
             beat.displayDuration = ticks;
             beat.playbackDuration = ticks;
@@ -510,6 +519,7 @@ export class NumberedBarRenderer extends LineBarRenderer {
         if (this._staffUsesJianpuEventsOnly() && this.bar.jianpuEvents.length > 0) {
             this._paintSimpleNotationTieLines(cx, cy, canvas);
             this._paintSimpleNotationUnderlines(cx, cy, canvas, BeatSubElement.NumberedDuration);
+            this._paintSimpleNotationTuplets(cx, cy, canvas);
         }
 
         // Draw Jianpu lyrics last so they stay below note duration bars and are not overpainted.
@@ -737,6 +747,110 @@ export class NumberedBarRenderer extends LineBarRenderer {
             const underlineCount = Math.max(0, ...group.map(n => n.underlineCount ?? 0));
             drawUnderlineGroup(canvas, cx + this.x, baseY, group, underlineCount);
         }
+    }
+
+    /**
+     * 三连音/tuplet 标记：连续 tuplet 事件的段中心上方画比例数字（如 "3"），
+     * 仿 LineBarRenderer._paintTupletHelper 的单数字样式，但用简谱自己的布局坐标
+     * （原生 TupletGroup 链依赖 beaming helper 几何，简谱路径无 beam，不适用）。
+     */
+    private _paintSimpleNotationTuplets(cx: number, cy: number, canvas: ICanvas): void {
+        const events = this.bar.jianpuEvents;
+        if (events.length === 0) {
+            return;
+        }
+        const layouts = this._collectJianpuEventLayouts(true);
+        if (layouts.length === 0) {
+            return;
+        }
+        const layoutByIndex = new Map<number, JianpuEventLayoutCoords>();
+        for (const layout of layouts) {
+            layoutByIndex.set(layout.eventIndex, layout);
+        }
+
+        const absCx = cx + this.x;
+        const absCy = cy + this.y;
+        // 位于数字行上方的固定偏移（tie 在 -10，tuplet 数字更高一档）
+        const tupletYOffset = -20;
+        const size = this.tupletSize;
+
+        canvas.color = this.resources.mainGlyphColor;
+        const oldAlign = canvas.textAlign;
+        const oldBaseLine = canvas.textBaseline;
+        canvas.textAlign = TextAlign.Center;
+        canvas.textBaseline = TextBaseline.Middle;
+
+        // 找连续 tuplet 段（同 numerator/denominator 的相邻 event）
+        let i = 0;
+        while (i < events.length) {
+            const event = events[i]!;
+            if (!jianpuEventHasTuplet(event)) {
+                i++;
+                continue;
+            }
+            let j = i;
+            while (
+                j + 1 < events.length &&
+                jianpuEventHasTuplet(events[j + 1]!) &&
+                events[j + 1]!.tupletNumerator === event.tupletNumerator &&
+                events[j + 1]!.tupletDenominator === event.tupletDenominator
+            ) {
+                j++;
+            }
+
+            const first = layoutByIndex.get(i);
+            const last = layoutByIndex.get(j);
+            if (first && last) {
+                const startX = absCx + first.preX;
+                const endX = absCx + last.postX;
+                const middleX = (startX + endX) / 2;
+                const y = absCy + first.centerY + tupletYOffset;
+
+                // 比例数字：常见 N:M 用单数字字形（与 _paintTupletHelper 的映射一致）
+                const num = event.tupletNumerator;
+                const den = event.tupletDenominator;
+                let symbols: MusicFontSymbol[];
+                if (num === 2 && den === 3) {
+                    symbols = [MusicFontSymbol.Tuplet2];
+                } else if (num === 3 && den === 2) {
+                    symbols = [MusicFontSymbol.Tuplet3];
+                } else if (num === 4 && den === 6) {
+                    symbols = [MusicFontSymbol.Tuplet4];
+                } else if (num === 5 && den === 4) {
+                    symbols = [MusicFontSymbol.Tuplet5];
+                } else if (num === 6 && den === 4) {
+                    symbols = [MusicFontSymbol.Tuplet6];
+                } else {
+                    symbols = [];
+                    const zero = MusicFontSymbol.Tuplet0 as number;
+                    if (num >= 10) {
+                        symbols.push((zero + Math.floor(num / 10)) as MusicFontSymbol);
+                        symbols.push((zero + (num % 10)) as MusicFontSymbol);
+                    } else {
+                        symbols.push((zero + num) as MusicFontSymbol);
+                    }
+                    symbols.push(MusicFontSymbol.TupletColon);
+                    symbols.push((zero + (den % 10)) as MusicFontSymbol);
+                }
+
+                using _ = ElementStyleHelper.beat(canvas, BeatSubElement.NumberedTuplet, this._jianpuBeats[i] ?? this._jianpuBeats[0]!);
+
+                // 短横线跨段 + 中央数字（bracket 简化为一条水平线，避免覆盖上方歌词/和弦区）
+                const oldLineWidth = canvas.lineWidth;
+                canvas.beginPath();
+                canvas.moveTo(startX, y);
+                canvas.lineTo(endX, y);
+                canvas.lineWidth = 1;
+                canvas.stroke();
+                canvas.lineWidth = oldLineWidth;
+                canvas.fillMusicFontSymbols(middleX, y + size * 0.5, 1, symbols, true);
+            }
+
+            i = j + 1;
+        }
+
+        canvas.textAlign = oldAlign;
+        canvas.textBaseline = oldBaseLine;
     }
 
     /** 弧顶连音线：bar.jianpuTiePairs + event 标志 + 跨小节 pending */

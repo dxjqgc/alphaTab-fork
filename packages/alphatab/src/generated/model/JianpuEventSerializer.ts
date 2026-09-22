@@ -31,6 +31,8 @@ export class JianpuEventSerializer {
         o.set("jianpubeamtoindex", obj.jianpuBeamToIndex);
         o.set("tietonext", obj.tieToNext);
         o.set("tiedfromprev", obj.tiedFromPrev);
+        o.set("tupletnumerator", obj.tupletNumerator);
+        o.set("tupletdenominator", obj.tupletDenominator);
         return o;
     }
     public static setProperty(obj: JianpuEvent, property: string, v: unknown): boolean {
@@ -64,6 +66,12 @@ export class JianpuEventSerializer {
                 return true;
             case "tiedfromprev":
                 obj.tiedFromPrev = v! as boolean;
+                return true;
+            case "tupletnumerator":
+                obj.tupletNumerator = v! as number;
+                return true;
+            case "tupletdenominator":
+                obj.tupletDenominator = v! as number;
                 return true;
         }
         return false;

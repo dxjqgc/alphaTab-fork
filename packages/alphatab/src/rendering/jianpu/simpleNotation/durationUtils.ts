@@ -25,7 +25,15 @@ export function jianpuEventTicks(event: JianpuEvent): number {
     for (let dot = 0; dot < event.dots; dot++) {
         ticks = MidiUtils.applyDot(ticks, false);
     }
+    if (jianpuEventHasTuplet(event)) {
+        ticks = MidiUtils.applyTuplet(ticks, event.tupletNumerator, event.tupletDenominator);
+    }
     return ticks;
+}
+
+/** 是否为 tuplet 事件（3:2 三连音等；-1/-1 或相等比例视为非 tuplet，与 Beat.hasTuplet 惯例一致） */
+export function jianpuEventHasTuplet(event: JianpuEvent): boolean {
+    return event.tupletNumerator > 0 && event.tupletDenominator > 0 && event.tupletNumerator !== event.tupletDenominator;
 }
 
 /** event 时值折算为拍数 */

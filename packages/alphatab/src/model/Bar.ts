@@ -53,6 +53,14 @@ export class JianpuEvent {
      * 从上一 event 连音延续而来。
      */
     public tiedFromPrev: boolean = false;
+    /**
+     * 三连音/tuplet 分子（如 3:2 三连音为 3）；-1 表示非 tuplet（与 Beat 惯例一致）。
+     */
+    public tupletNumerator: number = -1;
+    /**
+     * 三连音/tuplet 分母（如 3:2 三连音为 2）；-1 表示非 tuplet。
+     */
+    public tupletDenominator: number = -1;
 }
 
 /**
