@@ -1405,7 +1405,13 @@ export class TinySoundFont implements IAudioSampleSynthesizer {
                                             `Skipping load of unused sample ${shdr.sampleName} for preset ${phdr.presetName} (bank ${preset.bank} program ${preset.presetNumber})`
                                         );
                                         zoneRegion.samples = new Float32Array(0);
-                                    } else if ((shdr.sampleType & 0x01) !== 0) {
+                                    } else if ((shdr.sampleType & 0x07) !== 0) {
+                                        // 0x01: Mono, 0x02: Right, 0x04: Left.
+                                        // Stereo pairs are two independent shdr records with
+                                        // their own byte ranges — load each side as its own
+                                        // (mono) voice like fluidsynth does, otherwise
+                                        // stereo-sampled presets (e.g. MuseScore_General
+                                        // pianos) end up silent.
                                         Logger.debug(
                                             'AlphaSynth',
                                             `Loading of used sample ${shdr.sampleName} for preset ${phdr.presetName} (bank ${preset.bank} program ${preset.presetNumber})`
