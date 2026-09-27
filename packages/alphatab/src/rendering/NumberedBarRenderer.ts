@@ -7,6 +7,7 @@ import { GraceType } from '@coderline/alphatab/model/GraceType';
 import { ModelUtils } from '@coderline/alphatab/model/ModelUtils';
 import { MusicFontSymbol } from '@coderline/alphatab/model/MusicFontSymbol';
 import { Note } from '@coderline/alphatab/model/Note';
+import { NoteAccidentalMode } from '@coderline/alphatab/model/NoteAccidentalMode';
 import { Voice } from '@coderline/alphatab/model/Voice';
 import { NotationElement } from '@coderline/alphatab/NotationSettings';
 import type { ICanvas } from '@coderline/alphatab/platform/ICanvas';
@@ -254,6 +255,11 @@ export class NumberedBarRenderer extends LineBarRenderer {
                 // and to anchor effects if any (though here we just want the number)
                 const note = new Note();
                 note.beat = beat;
+                // 简谱符号的变音记号只由 event.text 的 '#'/‘b’ 前缀驱动（drawSimpleNote）。
+                // 裸 Note 的 displayValue 恒为 0（C），在含 C♯ 的调号（D 大调及以上）下
+                // NumberedBeatPreNotesGlyph 会算出 requiredOffset=-1 而给每个符号（含休止 0）
+                // 画一个 ♭。ForceNone 让 PreNotes 跳过调号变音逻辑。
+                note.accidentalMode = NoteAccidentalMode.ForceNone;
                 beat.notes.push(note);
                 beat.minNote = note;
                 beat.maxNote = note;
