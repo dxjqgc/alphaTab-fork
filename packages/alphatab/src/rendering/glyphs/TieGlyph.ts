@@ -1,5 +1,5 @@
 import type { Note } from '@coderline/alphatab/model/Note';
-import type { ICanvas } from '@coderline/alphatab/platform/ICanvas';
+import { TextBaseline, type ICanvas } from '@coderline/alphatab/platform/ICanvas';
 import { type BarRendererBase, NoteXPosition, NoteYPosition } from '@coderline/alphatab/rendering/BarRendererBase';
 import { Glyph } from '@coderline/alphatab/rendering/glyphs/Glyph';
 import type { LineBarRenderer } from '@coderline/alphatab/rendering/LineBarRenderer';
@@ -176,20 +176,13 @@ export abstract class TieGlyph extends Glyph implements ITieGlyph {
                 this.renderer.smuflMetrics.tieHeight
             );
         } else {
-            // Local fork patch: render "H"/"P" text on the tab slur when this
-            // tie connects a hammer-on / pull-off pair. alphaTab upstream draws
-            // only the arc (no label); our guitar-tab users expect the marker.
-            // Uses isHammerPullOrigin (a serialized boolean that survives worker
-            // transport) rather than hammerPullDestination (a Note pointer that
-            // JsonConverter drops — worker rebuilds it via finish, but the
-            // rebuilt object may not be the same reference as the slur's endNote,
-            // so reference equality would miss it).
-            let slurText: string | undefined = undefined;
-            const noteTie = this as unknown as { startNote?: Note; endNote?: Note };
-            const s = noteTie.startNote;
-            const e = noteTie.endNote;
-            if (s && e && (s.isHammerPullOrigin || e.isHammerPullOrigin)) {
-                slurText = e.fret > s.fret ? 'H' : 'P';
+            // Fork: ties/slurs may carry a short label ("H"/"P" on a tab
+            // hammer-on / pull-off). The glyph decides the text, this only
+            // gives it a font and hands it to the painter.
+            const slurText = this.slurText();
+            const previousFont = canvas.font;
+            if (slurText !== undefined) {
+                canvas.font = this.renderer.resources.effectFont;
             }
             TieGlyph.paintTie(
                 canvas,
@@ -203,7 +196,18 @@ export abstract class TieGlyph extends Glyph implements ITieGlyph {
                 this.renderer.smuflMetrics.tieMidpointThickness,
                 slurText
             );
+            canvas.font = previousFont;
         }
+    }
+
+    /**
+     * Fork extension: a short label painted on this tie/slur, or undefined for
+     * none. alphaTab upstream draws ties and slurs as bare arcs — the tab
+     * renderer overrides this to mark hammer-ons and pull-offs, which guitar
+     * tab notation labels H and P.
+     */
+    protected slurText(): string | undefined {
+        return undefined;
     }
 
     protected abstract shouldDrawBendSlur(): boolean;
@@ -385,7 +389,8 @@ export abstract class TieGlyph extends Glyph implements ITieGlyph {
         y2: number,
         down: boolean /*= false*/,
         offset: number /*= 22*/,
-        size: number /*= 4*/
+        size: number /*= 4*/,
+        slurText?: string
     ): void {
         const cps = TieGlyph._computeBezierControlPoints(scale, x1, y1, x2, y2, down, offset, size);
 
@@ -395,6 +400,21 @@ export abstract class TieGlyph extends Glyph implements ITieGlyph {
         canvas.bezierCurveTo(cps[8], cps[9], cps[10], cps[11], cps[12], cps[13]);
         canvas.closePath();
         canvas.fill();
+
+        // Fork: optional label ("H"/"P") centred under/over the arc's apex —
+        // just outside the arc, the way the edit-mode canvas places it too. The
+        // caller sets the font; the text is measured with it, so it is set
+        // before this call.
+        if (slurText !== undefined && slurText !== '') {
+            const b = TieGlyph.calculateActualTieHeight(scale, x1, y1, x2, y2, down, offset, size);
+            const previousBaseline = canvas.textBaseline;
+            canvas.textBaseline = TextBaseline.Middle;
+            const w = canvas.measureText(slurText).width;
+            const apex = down ? b.y + b.h : b.y;
+            const gap = canvas.font.size * 0.6;
+            canvas.fillText(slurText, (x1 + x2) / 2 - w / 2, down ? apex + gap : apex - gap);
+            canvas.textBaseline = previousBaseline;
+        }
 
         // const c = canvas.color;
         // canvas.color = Color.random(100);

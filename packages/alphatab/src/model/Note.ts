@@ -887,6 +887,16 @@ export class Note {
                 this.palmMuteDestination = nextNoteOnLine.value;
             }
         }
+        // resolve the natural harmonic node
+        // A natural harmonic is notated at the fret the string is touched at, so
+        // its node IS the note's fret. This is how Guitar Pro stores it and how
+        // the importers derive it (`ModelUtils.deltaFretToHarmonicValue` from
+        // `note.fret` in Gp3To5Importer and the alphaTex `nh` element). Doing it
+        // here keeps the node in sync on every path — import, editing, and after
+        // the fret itself changes — instead of only where it was first written.
+        if (this.harmonicType === HarmonicType.Natural) {
+            this.harmonicValue = ModelUtils.deltaFretToHarmonicValue(this.fret);
+        }
         // set hammeron/pulloffs
         if (this.isHammerPullOrigin) {
             const hammerPullDestination = Note.findHammerPullDestination(this);
@@ -918,17 +928,46 @@ export class Note {
         } else if (this.slideOutType === SlideOutType.Legato && this.slideTarget) {
             effectSlurDestination = this.slideTarget;
         }
-        if (effectSlurDestination) {
-            this.hasEffectSlur = true;
-            if (this.effectSlurOrigin && this.beat.pickStroke === PickStroke.None) {
-                this.effectSlurOrigin.effectSlurDestination = effectSlurDestination;
-                this.effectSlurOrigin.effectSlurDestination.effectSlurOrigin = this.effectSlurOrigin;
-                this.effectSlurOrigin = null;
-            } else {
-                this.isEffectSlurOrigin = true;
-                this.effectSlurDestination = effectSlurDestination;
-                this.effectSlurDestination.effectSlurOrigin = this;
-            }
+        // Fork: the effect-slur chain is REBUILT on every pass, not extended.
+        // `finish` runs again after every edit (the app re-finishes the whole
+        // score on each change) and this block used to only ever ADD links, so a
+        // hammer/pull or legato slide that had been switched off kept its slur
+        // on the staff. Hence: assign every field here, and tell the note we
+        // used to point at to let go of us.
+        if (this.effectSlurDestination !== null && this.effectSlurDestination !== effectSlurDestination) {
+            this.effectSlurDestination.effectSlurOrigin = null;
+        }
+        this.hasEffectSlur = effectSlurDestination !== null;
+
+        // A run that keeps moving the same way is drawn as ONE slur; a turn is
+        // two, because the halves are different techniques whose letters (H and
+        // P) differ — 1-2-1 is a hammer-on then a pull-off, not one slur from
+        // the first note to the last.
+        let continuesRun = false;
+        if (effectSlurDestination !== null && this.effectSlurOrigin !== null && this.beat.pickStroke === PickStroke.None) {
+            const incoming = this.realValueWithoutHarmonic - this.effectSlurOrigin.realValueWithoutHarmonic;
+            const outgoing = effectSlurDestination.realValueWithoutHarmonic - this.realValueWithoutHarmonic;
+            continuesRun = Math.sign(incoming) === Math.sign(outgoing);
+        }
+
+        if (continuesRun) {
+            this.effectSlurOrigin!.effectSlurDestination = effectSlurDestination;
+            effectSlurDestination!.effectSlurOrigin = this.effectSlurOrigin;
+            this.effectSlurOrigin = null;
+            this.isEffectSlurOrigin = false;
+            this.effectSlurDestination = null;
+        } else if (effectSlurDestination !== null) {
+            this.isEffectSlurOrigin = true;
+            this.effectSlurDestination = effectSlurDestination;
+            effectSlurDestination.effectSlurOrigin = this;
+            // `this.effectSlurOrigin` stays: this note can be the end of one
+            // slur and the start of the next at the same time.
+        } else {
+            // No outgoing slur — at most the END of someone else's. Its link is
+            // owned by the origin note's own pass, which clears it if it no
+            // longer points here, so it must not be dropped here.
+            this.isEffectSlurOrigin = false;
+            this.effectSlurDestination = null;
         }
         // try to detect what kind of bend was used and cleans unneeded points if required
         // Guitar Pro 6 and above (gpif.xml) uses exactly 4 points to define all bends

@@ -951,7 +951,6 @@ export class Beat {
         this.minStringNote = null;
         this.maxStringNote = null;
         let visibleNotes: number = 0;
-        let isEffectSlurBeat: boolean = false;
         for (let i: number = 0, j: number = this.notes.length; i < j; i++) {
             const note: Note = this.notes[i];
             note.dynamics = this.dynamics;
@@ -994,25 +993,25 @@ export class Beat {
                 if (!this.maxStringNote || note.string > this.maxStringNote.string) {
                     this.maxStringNote = note;
                 }
-                if (note.hasEffectSlur) {
-                    isEffectSlurBeat = true;
-                }
             }
         }
-        if (isEffectSlurBeat) {
-            if (this.effectSlurOrigin) {
-                this.effectSlurOrigin.effectSlurDestination = this.nextBeat;
-                if (this.effectSlurOrigin.effectSlurDestination) {
-                    this.effectSlurOrigin.effectSlurDestination.effectSlurOrigin = this.effectSlurOrigin;
-                }
-                this.effectSlurOrigin = null;
-            } else {
-                this.isEffectSlurOrigin = true;
-                this.effectSlurDestination = this.nextBeat;
-                if (this.effectSlurDestination) {
-                    this.effectSlurDestination.effectSlurOrigin = this;
-                }
-            }
+        // Fork: the beat-level effect-slur chain mirrors the note-level one that
+        // `Note.finish` just rebuilt, rather than re-merging beat by beat. Two
+        // things fall out of that: a run which turns (1-2-1) is two slurs, so
+        // its middle beat STARTS one instead of sitting inside one, and a slur
+        // ends on the beat its note actually lands on rather than on the next
+        // beat. Rebuilt every pass for the same reason as the note-level chain —
+        // a removed hammer/pull must not leave its slur behind — and the beat we
+        // used to point at is told to let go.
+        const slurStart = this.notes.find(n => n.isEffectSlurOrigin && n.effectSlurDestination !== null) ?? null;
+        const slurDestination: Beat | null = slurStart?.effectSlurDestination?.beat ?? null;
+        if (this.effectSlurDestination !== null && this.effectSlurDestination !== slurDestination) {
+            this.effectSlurDestination.effectSlurOrigin = null;
+        }
+        this.isEffectSlurOrigin = slurDestination !== null;
+        this.effectSlurDestination = slurDestination;
+        if (slurDestination !== null) {
+            slurDestination.effectSlurOrigin = this;
         }
         if (this.notes.length > 0 && visibleNotes === 0) {
             this.isEmpty = true;

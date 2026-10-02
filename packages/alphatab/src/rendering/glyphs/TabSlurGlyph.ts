@@ -13,6 +13,34 @@ export class TabSlurGlyph extends TabTieGlyph {
         this._forSlide = forSlide;
     }
 
+    /**
+     * Fork: mark the slur with H (hammer-on) / P (pull-off), which guitar tab
+     * notation — and the app's edit-mode canvas — writes on the slur.
+     *
+     * A legato slide shares this glyph, but it has no `isHammerPullOrigin`, so
+     * that flag is what separates the two. (The canvas additionally paints
+     * "sl." on a slide; that one stays editor-only — the fork keeps alphaTab's
+     * straight-line slide.)
+     *
+     * Only the origin-side segment is labelled: a slur broken over a system
+     * break is painted by two glyphs and the letter belongs on it once.
+     */
+    protected override slurText(): string | undefined {
+        if (this.isForEnd) {
+            return undefined;
+        }
+
+        const start = this.startNote;
+        const end = this.endNote;
+        if (!start.isHammerPullOrigin && !end.isHammerPullOrigin) {
+            return undefined;
+        }
+
+        // Pitch, not fret: a hammer/pull destination may sit on a different
+        // string (a left-hand-tapped note), where a lower fret is a higher note.
+        return end.realValueWithoutHarmonic > start.realValueWithoutHarmonic ? 'H' : 'P';
+    }
+
     public override getTieHeight(startX: number, _startY: number, endX: number, _endY: number): number {
         return (Math.log(endX - startX + 1) * this.renderer.settings.notation.slurHeight) / 2;
     }
