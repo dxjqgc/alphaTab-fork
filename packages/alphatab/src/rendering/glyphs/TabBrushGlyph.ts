@@ -1,19 +1,24 @@
 import type { Beat } from '@coderline/alphatab/model/Beat';
 import { BrushType } from '@coderline/alphatab/model/BrushType';
-import { VibratoType } from '@coderline/alphatab/model/VibratoType';
 import type { ICanvas } from '@coderline/alphatab/platform/ICanvas';
 import { Glyph } from '@coderline/alphatab/rendering/glyphs/Glyph';
-import { NoteVibratoGlyph } from '@coderline/alphatab/rendering/glyphs/NoteVibratoGlyph';
 import type { TabBarRenderer } from '@coderline/alphatab/rendering/TabBarRenderer';
-import { NoteYPosition } from '@coderline/alphatab/rendering/BarRendererBase';
 import { MusicFontSymbol } from '@coderline/alphatab/model/MusicFontSymbol';
 
 /**
  * @internal
  */
 export class TabBrushGlyph extends Glyph {
+    /**
+     * Arpeggio wave shape, in staff spaces: the horizontal excursion either side
+     * of the arrow axis, and the vertical distance between two teeth. The canvas
+     * editor's drawTabBrush draws the same wave with the same ratios (3px / 4px
+     * at its ~8.5px staff space), so both renderers show one glyph.
+     */
+    private static readonly _waveAmplitude = 0.35;
+    private static readonly _waveStep = 0.5;
+
     private _beat: Beat;
-    private _noteVibratoGlyph?: NoteVibratoGlyph;
 
     public constructor(beat: Beat) {
         super(0, 0);
@@ -22,17 +27,6 @@ export class TabBrushGlyph extends Glyph {
 
     public override doLayout(): void {
         this.width = this.renderer.smuflMetrics.glyphWidths.get(MusicFontSymbol.ArrowheadBlackDown)!;
-        if (this._beat.brushType === BrushType.ArpeggioUp) {
-            const glyph: NoteVibratoGlyph = new NoteVibratoGlyph(0, 0, VibratoType.Slight, true);
-            glyph.renderer = this.renderer;
-            glyph.doLayout();
-            this._noteVibratoGlyph = glyph;
-        } else if (this._beat.brushType === BrushType.ArpeggioDown) {
-            const glyph: NoteVibratoGlyph = new NoteVibratoGlyph(0, 0, VibratoType.Slight, true);
-            glyph.renderer = this.renderer;
-            glyph.doLayout();
-            this._noteVibratoGlyph = glyph;
-        }
     }
 
     public override paint(cx: number, cy: number, canvas: ICanvas): void {
@@ -56,29 +50,13 @@ export class TabBrushGlyph extends Glyph {
                 canvas.lineTo(arrowX, staffBottomY);
                 canvas.stroke();
             } else if (this._beat.brushType === BrushType.ArpeggioUp) {
-                const glyph: NoteVibratoGlyph = this._noteVibratoGlyph!;
-
                 // Wave spans (staff top + arrowSize)..staff bottom so it meets
                 // the base of the ▼ drawn at the bottom.
-                const lineStartY: number = staffTopY + arrowSize;
-                const lineEndY: number = staffBottomY;
-                glyph.width = Math.abs(lineEndY - lineStartY);
-
-                canvas.beginRotate(cx + this.x, lineStartY, 90);
-                glyph.paint(0, - (this.width - glyph.height / 2), canvas);
-                canvas.endRotate();
+                this._paintWave(canvas, arrowX, staffTopY + arrowSize, staffBottomY);
             } else if (this._beat.brushType === BrushType.ArpeggioDown) {
-                const glyph: NoteVibratoGlyph = this._noteVibratoGlyph!;
-
                 // Wave spans staff top..(staff bottom - arrowSize) so it meets
                 // the base of the ▲ drawn at the top.
-                const lineStartY: number = staffTopY;
-                const lineEndY: number = staffBottomY - arrowSize;
-                glyph.width = Math.abs(lineEndY - lineStartY);
-
-                canvas.beginRotate(cx + this.x, lineEndY, -90);
-                glyph.paint(0, (this.width - glyph.height) / 2, canvas);
-                canvas.endRotate();
+                this._paintWave(canvas, arrowX, staffTopY, staffBottomY - arrowSize);
             }
             // Arrow direction follows the Chinese guitar-tab convention where
             // the arrow points in the direction of motion ON the tab (strings
@@ -103,5 +81,31 @@ export class TabBrushGlyph extends Glyph {
                 canvas.fill();
             }
         }
+    }
+
+    /**
+     * Sawtooth wave running along the arrow's axis from `startY` to `endY`: every
+     * tooth returns to the axis and pokes out alternately left/right, so the wave
+     * is centred ON the arrowhead instead of hanging beside it. alphaTab used to
+     * rotate a vibrato glyph here, which parked the wave off-axis by an amount
+     * that depended on font metrics; drawing it directly makes wave and arrow
+     * coaxial by construction, and matches the canvas editor.
+     */
+    private _paintWave(canvas: ICanvas, axisX: number, startY: number, endY: number): void {
+        const staffSpace = this.renderer.smuflMetrics.oneStaffSpace;
+        const amplitude = staffSpace * TabBrushGlyph._waveAmplitude;
+        const step = staffSpace * TabBrushGlyph._waveStep;
+        const span = endY - startY;
+        const steps = Math.max(2, Math.round(span / step));
+        const segment = span / steps;
+        canvas.beginPath();
+        canvas.moveTo(axisX, startY);
+        for (let i = 1; i <= steps; i++) {
+            const y = startY + segment * i;
+            const side = i % 2 === 1 ? 1 : -1;
+            canvas.lineTo(axisX + side * amplitude, y - segment / 2);
+            canvas.lineTo(axisX, y);
+        }
+        canvas.stroke();
     }
 }
