@@ -1009,6 +1009,8 @@ export class StaffSystem {
                         masterBarBounds = new MasterBarBounds();
                         masterBarBounds.index = renderer.bar.masterBar.index;
                         masterBarBounds.isFirstOfLine = renderer.isFirstOfStaff;
+                        masterBarBounds.naturalWidth = renderer.computedWidth;
+                        masterBarBounds.contentWidth = StaffSystem._contentWidthOf(renderer);
                         masterBarBounds.realBounds = new Bounds();
                         masterBarBounds.realBounds.x = x + renderer.x;
                         masterBarBounds.realBounds.y = realTop;
@@ -1030,11 +1032,29 @@ export class StaffSystem {
                         masterBarBoundsLookup.set(masterBarBounds.index, masterBarBounds);
                     } else {
                         masterBarBounds = masterBarBoundsLookup.get(renderer.bar.masterBar.index)!;
+                        masterBarBounds.naturalWidth = Math.max(masterBarBounds.naturalWidth, renderer.computedWidth);
+                        masterBarBounds.contentWidth = Math.max(
+                            masterBarBounds.contentWidth,
+                            StaffSystem._contentWidthOf(renderer)
+                        );
                     }
                     renderer.buildBoundingsLookup(masterBarBounds, x, cy + this.y + staff.y);
                 }
             }
         }
+    }
+
+    /**
+     * The width of a bar without the glyphs that only the first bar of a line carries (clef, time
+     * signature, tuning). Comparing this across bars makes their sizes independent of the line they
+     * currently sit on, which is what a line break planner needs (fork extension).
+     */
+    private static _contentWidthOf(renderer: BarRendererBase): number {
+        const info: BarLayoutingInfo | undefined = renderer.layoutingInfo;
+        if (!info) {
+            return renderer.computedWidth;
+        }
+        return renderer.computedWidth - info.preBeatSize - info.postBeatSize;
     }
 
     public getBarX(index: number): number {

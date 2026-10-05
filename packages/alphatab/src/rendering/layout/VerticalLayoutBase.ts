@@ -223,7 +223,7 @@ export abstract class VerticalLayoutBase extends ScoreLayout {
 
             this._systems = [];
             let currentIndex: number = 0;
-            const maxWidth: number = this._maxWidth;
+            const maxWidth: number = this._maxPackWidth;
             let system: StaffSystem = this.createEmptyStaffSystem(this._systems.length);
             system.x = this.pagePadding![0];
             system.y = y;
@@ -352,6 +352,16 @@ export abstract class VerticalLayoutBase extends ScoreLayout {
         const difference: number = width - system.computedWidth;
         const spacePerBar: number = difference / system.masterBarsRenderers.length;
 
+        // With `display.systemFillTolerance` the line is filled by scaling all its bars
+        // uniformly (same factor), so the natural ratio between a sparse and a dense bar is
+        // preserved: filling the line must not inflate a barely-notated bar to the same
+        // absolute width as its dense neighbour. Uniform scaling also covers the squeezed
+        // case (a slightly overfilled line, see _maxPackWidth), where an even distribution
+        // of the missing width would crush the narrow bars of a row dominated by one dense bar.
+        const tolerance: number = this.renderer.settings.display.systemFillTolerance;
+        const naturalBarsWidth: number = system.computedWidth - system.accoladeWidth;
+        const uniformScale: number = tolerance > 0 && naturalBarsWidth > 0 ? staffWidth / naturalBarsWidth : 0;
+
         for (const s of system.allStaves) {
             s.resetSharedLayoutData();
 
@@ -365,6 +375,8 @@ export abstract class VerticalLayoutBase extends ScoreLayout {
                 if (shouldApplyBarScale) {
                     const barDisplayScale = system.getBarDisplayScale(renderer);
                     actualBarWidth = (barDisplayScale * staffWidth) / totalScale;
+                } else if (uniformScale > 0) {
+                    actualBarWidth = renderer.computedWidth * uniformScale;
                 } else {
                     actualBarWidth = renderer.computedWidth + spacePerBar;
                 }
@@ -381,7 +393,7 @@ export abstract class VerticalLayoutBase extends ScoreLayout {
     private _createStaffSystem(currentBarIndex: number, endIndex: number): StaffSystem {
         const system: StaffSystem = this.createEmptyStaffSystem(this._systems.length);
         const barsPerRow: number = this.getBarsPerSystem(system.index);
-        const maxWidth: number = this._maxWidth;
+        const maxWidth: number = this._maxPackWidth;
         const end: number = endIndex + 1;
 
         let barIndex = currentBarIndex;
@@ -453,5 +465,15 @@ export abstract class VerticalLayoutBase extends ScoreLayout {
 
     private get _maxWidth(): number {
         return this.scaledWidth - this.pagePadding![0] - this.pagePadding![2];
+    }
+
+    /**
+     * The width a system may maximally grow to while it is being filled with bars.
+     * With `display.systemFillTolerance` a row may take one more bar even if it slightly
+     * exceeds the available width; the overflow is squeezed out again in _scaleToWidth.
+     */
+    private get _maxPackWidth(): number {
+        const tolerance: number = this.renderer.settings.display.systemFillTolerance;
+        return tolerance > 0 ? this._maxWidth * (1 + tolerance) : this._maxWidth;
     }
 }

@@ -20,6 +20,20 @@ export class MasterBarBounds {
     public isFirstOfLine: boolean = false;
 
     /**
+     * The width this master bar needs for its own content, before the layout engine stretches
+     * the system to fill the line (fork extension, needed to plan balanced line breaks).
+     */
+    public naturalWidth: number = 0;
+
+    /**
+     * Like {@link naturalWidth} but without the glyphs that only the first bar of a line carries
+     * (clef, time signature, tuning). `naturalWidth - contentWidth` therefore is the overhead a
+     * line pays for starting at this bar, which makes bar widths comparable across positions
+     * (fork extension).
+     */
+    public contentWidth: number = 0;
+
+    /**
      * Gets or sets the bounds covering all visually visible elements spanning all bars of this master bar.
      */
     public visualBounds!: Bounds;

@@ -139,6 +139,36 @@ export class DisplaySettings {
     public justifyLastSystem: boolean = false;
 
     /**
+     * How far a system (row) may be filled beyond the available width while line breaking, as a ratio.
+     *
+     * @remarks
+     * By default (`0`) alphaTab breaks the line as soon as the next bar would exceed the available
+     * width. Rows are always justified to the full width afterwards, so a row that ends up with a
+     * single sparse bar — because its dense neighbour did not fit — is stretched across the whole
+     * page, far beyond its content.
+     *
+     * With a tolerance greater than `0` a row may take one more bar even when the row then exceeds
+     * the available width by up to `available width * tolerance`; the overflow is squeezed out again
+     * so the row still fills the line exactly. Dense bars therefore pull their sparse neighbours onto
+     * the same row instead of ending up alone on the next one.
+     *
+     * Two properties matter for the result to stay readable:
+     *
+     * * The line is always filled to the available width (no trailing gap); the last system is left
+     *   as-is unless {@link justifyLastSystem} is set.
+     * * All bars of a system are scaled by the *same* factor, so the natural ratio between a sparse
+     *   and a dense bar is preserved — filling a line never inflates a barely-notated bar to the
+     *   width of a dense one, and squeezing never crushes it.
+     *
+     * The worst case squeeze is `1 / (1 + tolerance)` (e.g. `0.2` compresses a row by at most 17%).
+     *
+     * @since 1.9.0
+     * @category Display
+     * @defaultValue `0`
+     */
+    public systemFillTolerance: number = 0;
+
+    /**
      * Allows adjusting of the used fonts and colors for rendering.
      * @json_partial_names
      * @since 0.9.6
