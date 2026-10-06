@@ -136,7 +136,7 @@ export class AlphaSynthWebWorkerApi implements IAlphaSynth {
     }
 
     public get loadedMidiInfo(): PositionChangedEventArgs | undefined {
-        return this.loadedMidiInfo;
+        return this._loadedMidiInfo;
     }
 
     public get currentPosition(): PositionChangedEventArgs {

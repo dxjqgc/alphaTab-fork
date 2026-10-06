@@ -7,12 +7,22 @@ import { MidiUtils } from '@coderline/alphatab/midi/MidiUtils';
 import type { JianpuEvent } from '@coderline/alphatab/model/Bar';
 import { ModelUtils } from '@coderline/alphatab/model/ModelUtils';
 
-/** 拍号分母 → 一拍时值（与 simple-notation getCurrentBeatValue 一致） */
+/** 一组减时线覆盖的时值（以**分母音符**为单位，与 `jianpuEventNodeTime` 同单位）。
+ *
+ *  分组单位固定是**四分音符**，与拍号无关：`denominator / 4` —— /4 → 1（一个四分），
+ *  /8 → 2（两个八分 = 一个四分），/16 → 4。这样 6/8 的减时线按「每两个八分一组」
+ *  （一个小节三组），而不是按附点大拍分两组。
+ *
+ *  ★ 单位必须与 `jianpuEventNodeTime` 一致：后者把事件时值折算成分母音符数
+ *    （八分 = 1.0）。旧实现返回 `4 / denominator`，在 /8 下得到 0.5 —— 而八分的
+ *    nodeTime 是 1.0，于是 `nodeTime >= beatValue` 恒成立，**每个八分各自成组**，
+ *    减时线永远连不起来（6/8 的六个八分变成六组）。
+ */
 export function beatValueFromDenominator(timeSignatureDenominator: number): number {
     if (!timeSignatureDenominator || timeSignatureDenominator <= 0) {
         return 1;
     }
-    return 4 / timeSignatureDenominator;
+    return timeSignatureDenominator / 4;
 }
 
 /** 一拍对应的 MIDI tick 数 */

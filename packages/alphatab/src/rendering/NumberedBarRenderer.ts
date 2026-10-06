@@ -740,6 +740,7 @@ export class NumberedBarRenderer extends LineBarRenderer {
         }
 
         const denom = this.bar.masterBar.timeSignatureDenominator;
+        // 分组单位固定为四分音符（/8 下 = 两个八分一组），与分子无关
         const beatValue = beatValueFromDenominator(denom);
         const groups = groupNotesForBeam(drawNotes, beatValue);
         const baseY = cy + this.y + this._simpleNotationUnderlineBaseY();
