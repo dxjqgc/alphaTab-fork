@@ -12,6 +12,7 @@ import { Voice } from '@coderline/alphatab/model/Voice';
 import { NotationElement } from '@coderline/alphatab/NotationSettings';
 import type { ICanvas } from '@coderline/alphatab/platform/ICanvas';
 import { TextAlign, TextBaseline } from '@coderline/alphatab/platform/ICanvas';
+import type { BarRendererBase } from '@coderline/alphatab/rendering/BarRendererBase';
 import { BeatXPosition } from '@coderline/alphatab/rendering/BeatXPosition';
 import type { BeatContainerGlyphBase } from '@coderline/alphatab/rendering/glyphs/BeatContainerGlyph';
 import { BarLineGlyph } from '@coderline/alphatab/rendering/glyphs/BarLineGlyph';
@@ -53,6 +54,11 @@ export class NumberedBarRenderer extends LineBarRenderer {
     private _maxJianpuBottom: number = -10000;
     private _maxJianpuBeamingBottom: number = -10000;
     private _jianpuLyrics: { beat: Beat; glyph: LyricsGlyph }[] = [];
+    /**
+     * 整行（staff）统一的歌词基线，由 {@link alignStaffElements} 下发；-10000 = 尚未下发，
+     * 此时退回本小节自己的基线。
+     */
+    private _staffLyricBaseline: number = -10000;
 
     get dotSpacing(): number {
         return this.smuflMetrics.glyphHeights.get(MusicFontSymbol.AugmentationDot)! * 2;
@@ -94,14 +100,53 @@ export class NumberedBarRenderer extends LineBarRenderer {
         return this._jianpuEventIsBeamableNote(beatIndex);
     }
 
-    private _layoutJianpuLyrics(): void {
+    /**
+     * 本小节歌词所需的基线（本渲染器局部坐标）。
+     * 低八度点画在数字下方，多层减时线也从数字下方叠下去，二者都会把基线压低，
+     * 所以同一行里各小节算出来的值并不相同 —— 必须由 alignStaffElements 取整行最深值统一。
+     */
+    private _localLyricBaseline(): number {
         if (this._jianpuLyrics.length === 0 || this._maxJianpuBottom <= -10000) {
-            return;
+            return -10000;
         }
         const padding = this.settings.display.lyricLinesPaddingBetween;
         // 歌词基线必须避开下方减时线：减时线从 _simpleNotationUnderlineBaseY()
         // 起向下分层堆叠，层数越多下沿越低，否则 2 条以上减时线会与歌词重叠。
-        const lyricBaseline = Math.max(this._maxJianpuBottom, this._lowestDurationBarBottom()) + padding;
+        return Math.max(this._maxJianpuBottom, this._lowestDurationBarBottom()) + padding;
+    }
+
+    /**
+     * 一行（staff）内所有小节共用一条歌词基线，取整行最深的那条，否则谱面会高低不平：
+     * 只有个别小节带低八度点或十六分减时线时，那一行的歌词会被那一小节单独拽下去。
+     * 行高不受影响 —— staff 的 bottomOverflow 本来就是各小节的最大值。
+     */
+    public override alignStaffElements(renderers: BarRendererBase[]): void {
+        let baseline = -10000;
+        for (const renderer of renderers) {
+            if (renderer instanceof NumberedBarRenderer) {
+                const local = renderer._localLyricBaseline();
+                if (local > baseline) {
+                    baseline = local;
+                }
+            }
+        }
+        if (baseline <= -10000) {
+            return;
+        }
+        for (const renderer of renderers) {
+            if (renderer instanceof NumberedBarRenderer) {
+                renderer._staffLyricBaseline = baseline;
+                renderer._layoutJianpuLyrics();
+            }
+        }
+    }
+
+    private _layoutJianpuLyrics(): void {
+        if (this._jianpuLyrics.length === 0 || this._maxJianpuBottom <= -10000) {
+            return;
+        }
+        const lyricBaseline =
+            this._staffLyricBaseline > -10000 ? this._staffLyricBaseline : this._localLyricBaseline();
         for (const { beat, glyph } of this._jianpuLyrics) {
             // 绝对 X 坐标：对应 Jianpu 数字的中线
             glyph.x = this.getBeatX(beat, BeatXPosition.MiddleNotes);

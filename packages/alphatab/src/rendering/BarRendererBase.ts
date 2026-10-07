@@ -411,6 +411,20 @@ export class BarRendererBase {
         this.staff!.registerOverflowBottom(this.bottomOverflow);
     }
 
+    /**
+     * Called once for a staff, right before its renderers are finalized (and hence before the
+     * staff height is calculated). Renderers can use this to align elements which must sit on
+     * the same position in every bar of the staff - e.g. the numbered notation lyric baseline,
+     * which otherwise follows the lowest octave dot of the individual bar and makes the lyrics
+     * of a row stand at different heights.
+     *
+     * Only called on the first renderer of the staff.
+     *
+     * @param renderers All bar renderers of the staff, in bar order.
+     * @internal
+     */
+    public alignStaffElements(_renderers: BarRendererBase[]): void {}
+
     public doLayout(): void {
         if (!this.bar) {
             return;

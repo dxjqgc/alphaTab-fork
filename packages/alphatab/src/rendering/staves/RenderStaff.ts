@@ -232,6 +232,13 @@ export class RenderStaff {
     public finalizeStaff(): void {
         this._applyStaffPaddings();
 
+        // let the renderers align elements which must be consistent across all bars of the
+        // staff (e.g. the numbered notation lyric baseline) before the overflows registered
+        // by the individual bars are turned into the final staff height.
+        if (this.barRenderers.length > 0) {
+            this.barRenderers[0].alignStaffElements(this.barRenderers);
+        }
+
         this.height = 0;
 
         // 1st pass: let all renderers finalize themselves, this might cause
