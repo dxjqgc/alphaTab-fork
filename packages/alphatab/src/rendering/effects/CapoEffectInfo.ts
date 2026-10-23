@@ -28,15 +28,21 @@ export class CapoEffectInfo extends EffectInfo {
         return EffectBarGlyphSizing.SingleOnBeat;
     }
 
-    public shouldCreateGlyph(_settings: Settings, beat: Beat): boolean {
-        return beat.index === 0 && beat.voice.bar.index === 0 && beat.voice.bar.staff.capo !== 0;
+    public shouldCreateGlyph(_settings: Settings, _beat: Beat): boolean {
+        // The capo is page-level information: it is drawn ONCE in the score-info
+        // corner (left edge, next to the tuning info — see
+        // ScoreLayout._createScoreInfoGlyphs), not glued to the first beat of
+        // the first bar where it used to sit. The notation element is kept
+        // because NotationElement.EffectCapo still gates that corner glyph
+        // (and provides its element font), but no beat-bound glyph is created.
+        return false;
     }
 
     public createNewGlyph(renderer: BarRendererBase, beat: Beat): EffectGlyph {
         return new TextGlyph(
             0,
             0,
-            `Capo. fret ${beat.voice.bar.staff.capo}`,
+            `Capo = ${beat.voice.bar.staff.capo}`,
             renderer.resources.elementFonts.get(NotationElement.EffectCapo)!,
             TextAlign.Left
         );

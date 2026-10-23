@@ -65,8 +65,12 @@ export class TuningGlyph extends GlyphGroup {
             this.addGlyph(trackName);
         }
 
-        // Name
-        if (tuning.name.length > 0) {
+        // Name — only for NON-standard tunings. A standard tuning is the silent
+        // default of a guitar sheet: printing "Standard tuning" in the
+        // score-info corner is a label that says nothing (it also pushed the
+        // capo, which shares this band, into a second line). Non-standard
+        // tunings keep their name + the per-string list below.
+        if (tuning.name.length > 0 && !tuning.isStandard) {
             const tuningName = new TextGlyph(
                 0,
                 this.height,

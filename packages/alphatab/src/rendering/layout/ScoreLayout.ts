@@ -314,6 +314,45 @@ export abstract class ScoreLayout {
                 this.tuningGlyph = null;
             }
         }
+        // Capo — rendered ONCE in the score-info corner (left-aligned at the
+        // page's left padding, in the tuning band) instead of above the first
+        // beat of the first bar (see CapoEffectInfo). The band packs its items
+        // left→right, so the capo goes in FIRST to sit at the very left edge.
+        // A capo is page-level information: it belongs next to the tuning, not
+        // glued to a beat the reader has to hunt for.
+        if (notation.isNotationElementVisible(NotationElement.EffectCapo)) {
+            let capoStaff: Staff | null = null;
+            for (const track of this.renderer.tracks!) {
+                for (const staff of track.staves) {
+                    if (!staff.isPercussion && staff.capo !== 0) {
+                        capoStaff = staff;
+                        break;
+                    }
+                }
+                if (capoStaff) {
+                    break;
+                }
+            }
+            if (capoStaff) {
+                // 2× the effect font: the capo sits alone in the corner of a
+                // page-wide sheet, and at effect size it reads as a footnote.
+                const capoFont = res.elementFonts.get(NotationElement.EffectCapo)!;
+                const capoGlyph = new TextGlyph(
+                    0,
+                    0,
+                    `Capo = ${capoStaff.capo}`,
+                    capoFont.withSize(capoFont.size * 2),
+                    TextAlign.Left
+                );
+                capoGlyph.renderer = fakeBarRenderer;
+                capoGlyph.doLayout();
+                if (!this.tuningGlyph) {
+                    this.tuningGlyph = new TuningContainerGlyph(0, 0);
+                    this.tuningGlyph.renderer = fakeBarRenderer;
+                }
+                this.tuningGlyph.glyphs = [capoGlyph, ...(this.tuningGlyph.glyphs ?? [])];
+            }
+        }
         // chord diagram glyphs
         if (notation.isNotationElementVisible(NotationElement.ChordDiagrams)) {
             this.chordDiagrams = new ChordDiagramContainerGlyph(0, 0);
