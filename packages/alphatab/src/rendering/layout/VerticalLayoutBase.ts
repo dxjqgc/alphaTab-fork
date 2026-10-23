@@ -237,7 +237,12 @@ export abstract class VerticalLayoutBase extends ScoreLayout {
                     // move to next bar
                     currentIndex++;
 
-                    if (this._needsLineBreak(currentIndex)) {
+                    // NOTE: the line break is declared *after* the bar just added, which is
+                    // `currentIndex - 1` now. `_needsLineBreak` takes a 0-based bar index and
+                    // looks up the 1-based entry (`index + 1`), exactly like the packing path in
+                    // `_createStaffSystem` does — passing `currentIndex` here shifted every
+                    // forced break by one bar whenever the layout was re-run through a resize.
+                    if (this._needsLineBreak(currentIndex - 1)) {
                         system.isFull = true;
                     }
                 } else {
