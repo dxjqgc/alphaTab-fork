@@ -19,6 +19,27 @@ export class LyricsGlyph extends EffectGlyph {
         this.textAlign = textAlign;
     }
 
+    /** The text lines of this glyph (one entry per stacked line). */
+    public get lines(): string[] {
+        return this._lines;
+    }
+
+    /**
+     * Re-measures this glyph with a different font size.
+     *
+     * Used by the jianpu lyric auto-fit: a syllable of a spaced language is a whole
+     * word, not a single character, so it can be wider than the horizontal slot the
+     * beat grid gives it and has to shrink into that slot instead of being painted
+     * over its neighbour.
+     */
+    public setFontSize(size: number): void {
+        if (size === this.font.size) {
+            return;
+        }
+        this.font = this.font.withSize(size);
+        this.doLayout();
+    }
+
     public override doLayout(): void {
         super.doLayout();
 

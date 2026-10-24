@@ -53,7 +53,31 @@ export class NumberedBarRenderer extends LineBarRenderer {
     private _jianpuBeats: Beat[] = [];
     private _maxJianpuBottom: number = -10000;
     private _maxJianpuBeamingBottom: number = -10000;
-    private _jianpuLyrics: { beat: Beat; glyph: LyricsGlyph }[] = [];
+    /**
+     * 一条歌词的绘制状态。
+     * - `baseSize`：基准字号（中文 1.5×、西文 1.15× 效果字体）；
+     * - `baseWidth`：基准字号下的文字宽度 —— 排版时据此向弹簧系统要空间，绘制时据此算缩放。
+     */
+    private _jianpuLyrics: { beat: Beat; glyph: LyricsGlyph; baseSize: number; baseWidth: number }[] = [];
+    /**
+     * 本小节统一的歌词缩放（1 = 原字号），由 {@link _fitLyrics} 算好。
+     *
+     * 按**小节**统一而不是按行统一：一行里各小节的密度可以差很远（一个稀疏小节挨着一个
+     * 16 分密小节），整行取最密的那条会让稀疏小节的歌词跟着一起缩得很小 —— 用户看到的
+     * 就是「明明很空的地方歌词也很小」。小节内各音密度相近，同比例才不显得忽大忽小。
+     */
+    private _lyricScale: number = 1;
+    /** {@link _fitLyrics} 上次计算时的依据（本小节最终宽度）；-1 = 还没算过。 */
+    private _lyricFitWidth: number = -1;
+
+    /** 简谱歌词基准字号倍率。中文是一字一音节，可以放大；西文一个音节是整个单词
+     * （"evening" 落在 16 分槽位里比音距宽好几倍），1.5× 会让相邻歌词直接叠住。 */
+    private static readonly _lyricCjkFontScale: number = 1.5;
+    private static readonly _lyricLatinFontScale: number = 1.15;
+    /** 小节统一缩放的绝对下限；再小就认不出（与前端 melodyScale 的 0.55 同一个取舍）。 */
+    private static readonly _lyricMinBarScale: number = 0.55;
+    /** 相邻两条歌词之间至少留的空隙（排版单位）。 */
+    private static readonly _lyricSlotGap: number = 2;
     /**
      * 整行（staff）统一的歌词基线，由 {@link alignStaffElements} 下发；-10000 = 尚未下发，
      * 此时退回本小节自己的基线。
@@ -100,6 +124,22 @@ export class NumberedBarRenderer extends LineBarRenderer {
         return this._jianpuEventIsBeamableNote(beatIndex);
     }
 
+    /** 不含 CJK 的歌词 = 空格分隔语言，一个音节就是一整个单词（"evening"）。 */
+    private static _isLatinLyric(text: string): boolean {
+        return !/[\u3400-\u9fff\uf900-\ufaff]/.test(text);
+    }
+
+    public override _registerLayoutingInfo(): void {
+        super._registerLayoutingInfo();
+        // 歌词比拍距宽时才向弹簧系统要空间（见 BarLayoutingInfo 的 `_lyricWidths`：
+        // 只加「差多少」，中文单字本来放得下 → 谱面宽度与改动前完全一致）。
+        for (const lyric of this._jianpuLyrics) {
+            if (lyric.baseWidth > 0) {
+                this.layoutingInfo.setLyricWidth(lyric.beat, lyric.baseWidth);
+            }
+        }
+    }
+
     /**
      * 本小节歌词所需的基线（本渲染器局部坐标）。
      * 低八度点画在数字下方，多层减时线也从数字下方叠下去，二者都会把基线压低，
@@ -141,16 +181,52 @@ export class NumberedBarRenderer extends LineBarRenderer {
         }
     }
 
+    /**
+     * 算出本小节歌词的统一缩放（{@link _lyricScale}）。
+     *
+     * 歌词按音位居中、音位不能挪（否则看不出哪个字唱在哪个音上），所以「不重叠」就是
+     * 对**每一对相邻歌词**都要求 `w_i/2 + w_{i+1}/2 ≤ 音距`。整体缩到比例 s 后要
+     * `s × (w_i + w_{i+1}) / 2 ≤ 音距`，本小节能用的最大比例就是所有相邻对里最小的那个：
+     * 整小节共用一个比例（同一小节字大小一致），且由构造保证不重叠。
+     *
+     * 这比「每条歌词各自塞进半个槽位」宽松得多：邻居很窄时（一个 "an"）宽词可以借用
+     * 它的空档 —— 中英混排最常见的情形，也不会为了最挤的一条把整小节缩到极限之外。
+     *
+     * 以本小节最终宽度为键缓存：排版中途宽度还会变，末次（`calculateOverflows` /
+     * `paintContent`）拿到的是终值。
+     */
+    private _fitLyrics(): void {
+        if (this._jianpuLyrics.length === 0 || this._lyricFitWidth === this.width) {
+            return;
+        }
+        this._lyricFitWidth = this.width;
+        const centers = this._jianpuLyrics.map(lyric => this.getBeatX(lyric.beat, BeatXPosition.MiddleNotes));
+        let scale = 1;
+        for (let i = 0; i + 1 < this._jianpuLyrics.length; i++) {
+            const gap = centers[i + 1] - centers[i];
+            const needed =
+                this._jianpuLyrics[i].baseWidth / 2 +
+                this._jianpuLyrics[i + 1].baseWidth / 2 +
+                NumberedBarRenderer._lyricSlotGap;
+            if (needed > 0) {
+                scale = Math.min(scale, gap / needed);
+            }
+        }
+        this._lyricScale = Math.min(1, Math.max(scale, NumberedBarRenderer._lyricMinBarScale));
+    }
+
     private _layoutJianpuLyrics(): void {
         if (this._jianpuLyrics.length === 0 || this._maxJianpuBottom <= -10000) {
             return;
         }
+        this._fitLyrics();
         const lyricBaseline =
             this._staffLyricBaseline > -10000 ? this._staffLyricBaseline : this._localLyricBaseline();
-        for (const { beat, glyph } of this._jianpuLyrics) {
+        for (const lyric of this._jianpuLyrics) {
+            lyric.glyph.setFontSize(lyric.baseSize * this._lyricScale);
             // 绝对 X 坐标：对应 Jianpu 数字的中线
-            glyph.x = this.getBeatX(beat, BeatXPosition.MiddleNotes);
-            glyph.y = lyricBaseline;
+            lyric.glyph.x = this.getBeatX(lyric.beat, BeatXPosition.MiddleNotes);
+            lyric.glyph.y = lyricBaseline;
         }
     }
 
@@ -324,6 +400,7 @@ export class NumberedBarRenderer extends LineBarRenderer {
         if (this._staffUsesJianpuEventsOnly() && this.bar.jianpuEvents.length === 0) {
             this._jianpuLyrics = [];
             this._jianpuBeats = [];
+            this._lyricFitWidth = -1;
             this.voiceContainer.doLayout();
 
             if (this.topEffects.isLinkedToPreviousRenderer || this.bottomEffects.isLinkedToPreviousRenderer) {
@@ -334,6 +411,7 @@ export class NumberedBarRenderer extends LineBarRenderer {
 
         if (this.bar.jianpuEvents && this.bar.jianpuEvents.length > 0) {
             this._jianpuLyrics = [];
+            this._lyricFitWidth = -1;
             const absoluteStart = this.bar.masterBar.start;
             for (const beat of this._jianpuBeats) {
                 // ensure the beat voice points to a valid voice for rendering
@@ -400,9 +478,7 @@ export class NumberedBarRenderer extends LineBarRenderer {
 
             // 为每个带 lyric 的 JianpuEvent 创建歌词 glyph（具体坐标在绘制前根据最终布局再计算）
             const baseLyricsFont = this.resources.elementFonts.get(NotationElement.EffectLyrics);
-            // 简谱行内歌词比通用歌词字号放大 1.5 倍
-            const lyricsFont = baseLyricsFont ? baseLyricsFont.withSize(baseLyricsFont.size * 1.5) : undefined;
-            if (lyricsFont) {
+            if (baseLyricsFont) {
                 for (let i = 0; i < this._jianpuBeats.length && i < this.bar.jianpuEvents.length; i++) {
                     const event = this.bar.jianpuEvents[i];
                     if (!event || !event.lyric) {
@@ -410,10 +486,21 @@ export class NumberedBarRenderer extends LineBarRenderer {
                     }
                     const beat = this._jianpuBeats[i];
                     const lyricLines = event.lyric.includes('\n') ? event.lyric.split('\n') : [event.lyric];
+                    // 简谱行内歌词比通用歌词字号大：中文一字一音节，放大才看得清；
+                    // 西文一个音节是整个单词（"evening"），放大同样的倍率会直接串行。
+                    const fontScale = NumberedBarRenderer._isLatinLyric(event.lyric)
+                        ? NumberedBarRenderer._lyricLatinFontScale
+                        : NumberedBarRenderer._lyricCjkFontScale;
+                    const lyricsFont = baseLyricsFont.withSize(baseLyricsFont.size * fontScale);
                     const lyricGlyph = new LyricsGlyph(0, 0, lyricLines, lyricsFont, TextAlign.Center);
                     lyricGlyph.renderer = this;
                     lyricGlyph.doLayout();
-                    this._jianpuLyrics.push({ beat, glyph: lyricGlyph });
+                    this._jianpuLyrics.push({
+                        beat,
+                        glyph: lyricGlyph,
+                        baseSize: lyricsFont.size,
+                        baseWidth: lyricGlyph.width
+                    });
                 }
             }
 

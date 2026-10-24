@@ -42,6 +42,29 @@ export class BarLayoutingInfo {
      */
     private _chordEffectWidths: Map<number, number> = new Map();
 
+    /**
+     * Visual width of a beat's jianpu lyric, keyed by beat absoluteDisplayStart.
+     *
+     * Unlike chord names this does **not** reserve space unconditionally: a syllable of a
+     * spaced language ("evening") is a whole word and several times wider than the beat
+     * pitch, while a CJK syllable is a single character that already fits. Only the
+     * *deficit* against the spring's minimum space is added in finish(), so Chinese
+     * scores keep their exact previous layout and only bars that genuinely need room for
+     * wide words grow (and thereby wrap earlier).
+     */
+    private _lyricWidths: Map<number, number> = new Map();
+
+    /** Gap kept between two neighbouring lyrics (layout units). */
+    private static readonly _lyricGap: number = 3;
+
+    /**
+     * How much wider a bar may get because of its lyrics, relative to its own content
+     * width. Wide words that still do not fit give way by shrinking (see
+     * `NumberedBarRenderer`'s lyric auto-fit) rather than pushing a single bar across
+     * the whole page.
+     */
+    private static readonly _lyricMaxGrowth: number = 0.85;
+
     // the smallest duration we have between two springs to ensure we have positive spring constants
     private _minDuration: number = BarLayoutingInfo._defaultMinDuration;
 
@@ -95,6 +118,18 @@ export class BarLayoutingInfo {
         const existing = this._chordEffectWidths.get(key);
         if (existing === undefined || width > existing) {
             this._chordEffectWidths.set(key, width);
+        }
+    }
+
+    /**
+     * Registers the visual width of the lyric drawn under the given beat.
+     * @see _lyricWidths for why only the deficit is applied in finish().
+     */
+    public setLyricWidth(beat: Beat, width: number): void {
+        const key = beat.absoluteDisplayStart;
+        const existing = this._lyricWidths.get(key);
+        if (existing === undefined || width > existing) {
+            this._lyricWidths.set(key, width);
         }
     }
 
@@ -278,6 +313,50 @@ export class BarLayoutingInfo {
                     const extraSpace = currentChordW / 2 + nextChordW / 2
                         + (currentChordW > 0 && nextChordW > 0 ? 2 : 0);
                     currentSpring.postSpringWidth += extraSpace;
+                }
+            }
+        }
+
+        // Lyrics are centered on their beat, so a lyric wider than its pitch bleeds into
+        // both neighbours. Give the springs between lyric-bearing beats exactly the space
+        // they are missing (never more — a bar whose lyrics already fit is untouched, so
+        // CJK scores lay out pixel-identically to before). The total growth is capped so
+        // one very dense bar cannot demand a whole page; the remainder is covered by the
+        // lyric auto-fit in NumberedBarRenderer.
+        if (this._lyricWidths.size > 0) {
+            const sortedSprings = this._timeSortedSprings;
+            if (sortedSprings.length > 0) {
+                let plainWidth = this._incompleteGraceRodsWidth;
+                for (const s of sortedSprings) {
+                    plainWidth += s.preSpringWidth + s.postSpringWidth;
+                }
+                const deficits: number[] = [];
+                let totalDeficit = 0;
+                for (let i = 0; i < sortedSprings.length - 1; i++) {
+                    const currentSpring = sortedSprings[i];
+                    const nextSpring = sortedSprings[i + 1];
+                    const currentLyricW = this._lyricWidths.get(currentSpring.timePosition) ?? 0;
+                    const nextLyricW = this._lyricWidths.get(nextSpring.timePosition) ?? 0;
+                    if (currentLyricW <= 0 && nextLyricW <= 0) {
+                        deficits.push(0);
+                        continue;
+                    }
+                    const needed =
+                        (currentLyricW > 0 ? currentLyricW / 2 : 0) +
+                        (nextLyricW > 0 ? nextLyricW / 2 : 0) +
+                        (currentLyricW > 0 && nextLyricW > 0 ? BarLayoutingInfo._lyricGap : 0);
+                    const available = currentSpring.postSpringWidth + nextSpring.preSpringWidth;
+                    const deficit = Math.max(0, needed - available);
+                    deficits.push(deficit);
+                    totalDeficit += deficit;
+                }
+                const maxGrowth = plainWidth * BarLayoutingInfo._lyricMaxGrowth;
+                const factor = totalDeficit > maxGrowth && totalDeficit > 0 ? maxGrowth / totalDeficit : 1;
+                for (let i = 0; i < deficits.length; i++) {
+                    const deficit = deficits[i];
+                    if (deficit > 0) {
+                        sortedSprings[i].postSpringWidth += deficit * factor;
+                    }
                 }
             }
         }
