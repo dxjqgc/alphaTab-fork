@@ -33,6 +33,7 @@ export class ScoreSerializer {
         o.set("artist", obj.artist);
         o.set("copyright", obj.copyright);
         o.set("instructions", obj.instructions);
+        o.set("keyinfo", obj.keyInfo);
         o.set("music", obj.music);
         o.set("notices", obj.notices);
         o.set("subtitle", obj.subTitle);
@@ -65,6 +66,9 @@ export class ScoreSerializer {
                 return true;
             case "instructions":
                 obj.instructions = v! as string;
+                return true;
+            case "keyinfo":
+                obj.keyInfo = v! as string;
                 return true;
             case "music":
                 obj.music = v! as string;

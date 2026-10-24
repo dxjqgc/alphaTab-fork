@@ -258,6 +258,16 @@ export class Score {
     public instructions: string = '';
 
     /**
+     * 页首信息区的调性标记 —— **记谱调的主音**（如 `C`），不是实际发声调。
+     *
+     * 由宿主应用写入：吉他谱里的和弦是「手型名」，实际调性 = 记谱调 + 各轨 capo，
+     * 所以这里只存手型调，渲染时由本库加上 staff.capo 一起画成 `1 = X`
+     * （与 `Capo = N` 并排在页首左上角，调性在上）。
+     * alphaTab 自己不从记谱推断调性文案（调号只画在谱表上）。
+     */
+    public keyInfo: string = '';
+
+    /**
      * The author of the music.
      */
     public music: string = '';

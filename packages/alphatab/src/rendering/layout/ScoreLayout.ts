@@ -13,6 +13,7 @@ import type { RenderingResources } from '@coderline/alphatab/RenderingResources'
 import { BarRendererBase } from '@coderline/alphatab/rendering/BarRendererBase';
 import { type EffectBandInfo, EffectBandMode } from '@coderline/alphatab/rendering/BarRendererFactory';
 import { ChordDiagramContainerGlyph } from '@coderline/alphatab/rendering/glyphs/ChordDiagramContainerGlyph';
+import { GlyphGroup } from '@coderline/alphatab/rendering/glyphs/GlyphGroup';
 import { TextGlyph } from '@coderline/alphatab/rendering/glyphs/TextGlyph';
 import { TuningContainerGlyph } from '@coderline/alphatab/rendering/glyphs/TuningContainerGlyph';
 import { TuningGlyph } from '@coderline/alphatab/rendering/glyphs/TuningGlyph';
@@ -43,6 +44,27 @@ class LazyPartial {
  * This is the base class for creating new layouting engines for the score renderer.
  * @internal
  */
+/** 12 个半音名（只用升号，与宿主 `transposeChordName` 的拼写约定一致）。 */
+const NOTE_NAMES_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const NOTE_ALIAS_TO_SHARP = new Map<string, string>([
+    ['Db', 'C#'], ['Eb', 'D#'], ['Gb', 'F#'], ['Ab', 'G#'], ['Bb', 'A#'],
+    ['Cb', 'B'], ['Fb', 'E'], ['E#', 'F'], ['B#', 'C']
+]);
+
+/**
+ * 音名移调（`C` + 2 → `D`）。用于把「记谱调」加上变调夹得到实际发声调。
+ * 解析不了的名字原样返回 —— 页首信息宁可少一行，也不要印一个空字符串。
+ */
+function transposeNoteName(note: string, semitones: number): string {
+    const normalized = NOTE_ALIAS_TO_SHARP.get(note) ?? note;
+    const index = NOTE_NAMES_SHARP.indexOf(normalized);
+    if (index < 0) {
+        return note;
+    }
+    const shift = ((semitones % 12) + 12) % 12;
+    return NOTE_NAMES_SHARP[(index + shift) % 12];
+}
+
 export abstract class ScoreLayout {
     private _barRendererLookup: Map<string, Map<number, BarRendererBase>> = new Map();
 
@@ -320,37 +342,73 @@ export abstract class ScoreLayout {
         // left→right, so the capo goes in FIRST to sit at the very left edge.
         // A capo is page-level information: it belongs next to the tuning, not
         // glued to a beat the reader has to hunt for.
-        if (notation.isNotationElementVisible(NotationElement.EffectCapo)) {
+        {
             let capoStaff: Staff | null = null;
-            for (const track of this.renderer.tracks!) {
-                for (const staff of track.staves) {
-                    if (!staff.isPercussion && staff.capo !== 0) {
-                        capoStaff = staff;
+            if (notation.isNotationElementVisible(NotationElement.EffectCapo)) {
+                for (const track of this.renderer.tracks!) {
+                    for (const staff of track.staves) {
+                        if (!staff.isPercussion && staff.capo !== 0) {
+                            capoStaff = staff;
+                            break;
+                        }
+                    }
+                    if (capoStaff) {
                         break;
                     }
                 }
-                if (capoStaff) {
-                    break;
-                }
+            }
+            // 页首信息块（调性 + 变调夹）—— 两行、贴左，放在调弦 band 的最前面。
+            //
+            // 调性在前、capo 在后（用户口径：`1 = C` 写在上面，capo 往下挪一行）。
+            // TextGlyph 本身支持 `\n` 多行，所以不需要额外的容器：一个 glyph 就是
+            // 一个两行的信息块，行高由字体量出来。
+            //
+            // 调性读 `score.keyInfo`（**记谱调主音**，由宿主写入），实际发声调 =
+            // 记谱调 + 该 staff 的 capo —— 所以移动变调夹后这里会自动跟着变。
+            const infoLines: string[] = [];
+            const keyRoot = score.keyInfo;
+            if (keyRoot) {
+                infoLines.push(`1 = ${transposeNoteName(keyRoot, capoStaff?.capo ?? 0)}`);
             }
             if (capoStaff) {
-                // 2× the effect font: the capo sits alone in the corner of a
+                infoLines.push(`Capo = ${capoStaff.capo}`);
+            }
+            if (infoLines.length > 0) {
+                // 2× the effect font: the block sits alone in the corner of a
                 // page-wide sheet, and at effect size it reads as a footnote.
                 const capoFont = res.elementFonts.get(NotationElement.EffectCapo)!;
-                const capoGlyph = new TextGlyph(
-                    0,
-                    0,
-                    `Capo = ${capoStaff.capo}`,
-                    capoFont.withSize(capoFont.size * 2),
-                    TextAlign.Left
-                );
-                capoGlyph.renderer = fakeBarRenderer;
-                capoGlyph.doLayout();
+                const infoFont = capoFont.withSize(capoFont.size * 2);
+                // 行距自己算：TextGlyph 的 `\n` 多行排版按 measureText().height 累加，
+                // 在 Web canvas 上量出来的行高偏小，两行会叠在一起。这里每行一个
+                // glyph、按字体尺寸给固定行距，两行谱首信息才排得开。
+                const lineAdvance = Math.round(infoFont.size * 1.18);
+                const lines: TextGlyph[] = [];
+                let lineY = 0;
+                for (const line of infoLines) {
+                    const glyph = new TextGlyph(
+                        0,
+                        lineY,
+                        line,
+                        infoFont,
+                        TextAlign.Left,
+                        // 顶对齐：band 的 partial 是一块独立画布，基线用默认的 alphabetic
+                        // 会把第一行画到画布上边界之外（被裁掉）。
+                        TextBaseline.Top
+                    );
+                    glyph.renderer = fakeBarRenderer;
+                    glyph.doLayout();
+                    lines.push(glyph);
+                    lineY += lineAdvance;
+                }
+                const infoGlyph = new GlyphGroup(0, 0);
+                infoGlyph.renderer = fakeBarRenderer;
+                infoGlyph.glyphs = lines;
+                infoGlyph.doLayout();
                 if (!this.tuningGlyph) {
                     this.tuningGlyph = new TuningContainerGlyph(0, 0);
                     this.tuningGlyph.renderer = fakeBarRenderer;
                 }
-                this.tuningGlyph.glyphs = [capoGlyph, ...(this.tuningGlyph.glyphs ?? [])];
+                this.tuningGlyph.glyphs = [infoGlyph, ...(this.tuningGlyph.glyphs ?? [])];
             }
         }
         // chord diagram glyphs
