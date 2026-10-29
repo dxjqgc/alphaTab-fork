@@ -1226,23 +1226,41 @@ export class Note {
             }
 
             // on any effect destiniation, lookup the origin which should already be
-            // registered
+            // registered.
+            // Fork: the id can also be DANGLING — the origin note was removed from the
+            // score after the link was made (in the editor, deleting one end of a
+            // hammer/pull or tie used to leave the other end's back-pointer in place),
+            // so it is not part of this serialization and never enters the lookup.
+            // Dereferencing that `undefined` blew up the whole load with
+            // `Cannot set properties of undefined (setting 'hammerPullDestination')`,
+            // bricking the score. A dangling id now just means "no link": the pointer
+            // stays null and `finish()` re-derives it from the origin-side flags.
             if (this._noteIdBag.hammerPullOriginNoteId !== -1) {
-                this.hammerPullOrigin = noteIdLookup.get(this._noteIdBag.hammerPullOriginNoteId)!;
-                this.hammerPullOrigin.hammerPullDestination = this;
+                this.hammerPullOrigin = noteIdLookup.get(this._noteIdBag.hammerPullOriginNoteId) ?? null;
+                if (this.hammerPullOrigin !== null) {
+                    this.hammerPullOrigin.hammerPullDestination = this;
+                }
             }
             if (this._noteIdBag.tieOriginNoteId !== -1) {
-                this.tieOrigin = noteIdLookup.get(this._noteIdBag.tieOriginNoteId)!;
-                this.tieOrigin.tieDestination = this;
+                this.tieOrigin = noteIdLookup.get(this._noteIdBag.tieOriginNoteId) ?? null;
+                if (this.tieOrigin !== null) {
+                    this.tieOrigin.tieDestination = this;
+                } else {
+                    this.isTieDestination = false;
+                }
             }
             if (this._noteIdBag.slurOriginNoteId !== -1) {
-                this.slurOrigin = noteIdLookup.get(this._noteIdBag.slurOriginNoteId)!;
-                this.slurOrigin.slurDestination = this;
+                this.slurOrigin = noteIdLookup.get(this._noteIdBag.slurOriginNoteId) ?? null;
+                if (this.slurOrigin !== null) {
+                    this.slurOrigin.slurDestination = this;
+                }
             }
 
             if (this._noteIdBag.slideOriginNoteId !== -1) {
-                this.slideOrigin = noteIdLookup.get(this._noteIdBag.slideOriginNoteId)!;
-                this.slideOrigin.slideTarget = this;
+                this.slideOrigin = noteIdLookup.get(this._noteIdBag.slideOriginNoteId) ?? null;
+                if (this.slideOrigin !== null) {
+                    this.slideOrigin.slideTarget = this;
+                }
             }
 
             this._noteIdBag = null; // not needed anymore
