@@ -38,4 +38,11 @@ export interface JianpuUnderlinePaintStyle {
     lineThickness: number;
     edgeInset: number;
     baseYOffset: number;
+    /**
+     * 单层减时线的最小长度（layout unit）。
+     *
+     * `edgeInset` 会从两端各削掉一段；对单个音（尤其 16 分这种窄音符）来说两段加起来就
+     * 把线削到 3px 左右 —— 印出来像一个点，读者会以为是附点/杂点。给一个下限，短音也还是"线"。
+     */
+    minLength?: number;
 }

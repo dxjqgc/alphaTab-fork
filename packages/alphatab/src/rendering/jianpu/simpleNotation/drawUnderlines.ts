@@ -19,7 +19,9 @@ export const DEFAULT_UNDERLINE_STYLE: JianpuUnderlinePaintStyle = {
     lineSpacing: 3,
     lineThickness: 1.5,
     edgeInset: 3,
-    baseYOffset: 0
+    baseYOffset: 0,
+    /** 最小长度：约等于一个窄音符的完整宽度，短音的第二层减时线才不会缩成一个点。 */
+    minLength: 10
 };
 
 /**
@@ -43,7 +45,7 @@ export function drawUnderlineGroup(
         return;
     }
 
-    const { lineSpacing, lineThickness, edgeInset } = style;
+    const { lineSpacing, lineThickness, edgeInset, minLength = 0 } = style;
 
     // 分层绘制：每层只连接该层及以上层级的音符
     for (let layer = 1; layer <= maxUnderlineCount; layer++) {
@@ -85,8 +87,14 @@ export function drawUnderlineGroup(
 
         // 绘制该层的每个片段
         for (const segment of layerSegments) {
-            const x1 = segment.start.preX + (segment.start.startNote ? edgeInset : 0);
-            const x2 = segment.end.postX - (segment.end.endNote ? edgeInset : 0);
+            let x1 = segment.start.preX + (segment.start.startNote ? edgeInset : 0);
+            let x2 = segment.end.postX - (segment.end.endNote ? edgeInset : 0);
+            // 两端内缩把线削得太短时，围绕原中线对称补齐到 minLength（不挪原位，只是变粗一点）。
+            if (minLength > 0 && x2 - x1 < minLength) {
+                const center = (x1 + x2) / 2;
+                x1 = center - minLength / 2;
+                x2 = center + minLength / 2;
+            }
             paintUnderlineBar(canvas, cx + x1, y, cx + x2, lineThickness);
         }
     }

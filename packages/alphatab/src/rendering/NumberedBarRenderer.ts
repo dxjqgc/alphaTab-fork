@@ -1009,6 +1009,11 @@ export class NumberedBarRenderer extends LineBarRenderer {
         const absCx = cx + this.x;
         const absCy = cy + this.y;
         const tieYOffset = -10;
+        // 短连音线的最小弧高（控制点抬升，排版单位）：见 `drawSingleTieLine`。
+        // `tieHeight` 是 alphaTab 给五线谱连线用的弧高（1.2 × 谱面字号/4），取它的 0.45
+        // 与编辑器画布 `paint.ts` 的 `TIE_HEIGHT_BASE * 0.45` 同量级 —— 相邻 16 分音符之间
+        // 那根线只有十几单位宽，没有这个下限就是一条直线。
+        const minTieArcHeight = this.smuflMetrics.tieHeight * 0.45;
 
         const layoutByEventIndex = new Map<number, JianpuDrawNote>();
         for (const note of drawNotes) {
@@ -1020,7 +1025,7 @@ export class NumberedBarRenderer extends LineBarRenderer {
             const y1 = absCy + from.centerY + tieYOffset;
             const x2 = absCx + to.centerX;
             const y2 = absCy + to.centerY + tieYOffset;
-            drawSingleTieLine(canvas, x1, y1, x2, y2, Math.abs(x2 - x1));
+            drawSingleTieLine(canvas, x1, y1, x2, y2, 1.5, minTieArcHeight);
         };
 
         canvas.color = this.resources.mainGlyphColor;
@@ -1052,7 +1057,7 @@ export class NumberedBarRenderer extends LineBarRenderer {
                 const y1 = pendingY + tieYOffset;
                 const x2 = absCx + destNote.centerX;
                 const y2 = absCy + destNote.centerY + tieYOffset;
-                drawSingleTieLine(canvas, x1, y1, x2, y2, Math.abs(x2 - x1));
+                drawSingleTieLine(canvas, x1, y1, x2, y2, 1.5, minTieArcHeight);
             }
             pendingX = -1;
             pendingY = -1;
