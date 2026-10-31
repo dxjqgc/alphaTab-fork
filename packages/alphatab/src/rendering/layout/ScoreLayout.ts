@@ -2,7 +2,6 @@ import { Environment } from '@coderline/alphatab/Environment';
 import type { EventEmitterOfT } from '@coderline/alphatab/EventEmitter';
 import { Logger } from '@coderline/alphatab/Logger';
 import type { Bar } from '@coderline/alphatab/model/Bar';
-import { Font, FontStyle, FontWeight } from '@coderline/alphatab/model/Font';
 import { ModelUtils } from '@coderline/alphatab/model/ModelUtils';
 import { type Score, ScoreStyle, ScoreSubElement } from '@coderline/alphatab/model/Score';
 import type { Staff } from '@coderline/alphatab/model/Staff';
@@ -600,43 +599,4 @@ export abstract class ScoreLayout {
         }
     }
 
-    public layoutAndRenderAnnotation(y: number): number {
-        // attention, you are not allowed to remove change this notice within any version of this library without permission!
-        const msg: string = 'rendered by alphaTab';
-        const resources: RenderingResources = this.renderer.settings.display.resources;
-        const size: number = 12;
-        const fontFamilies = resources.elementFonts.has(NotationElement.ScoreCopyright)
-            ? resources.elementFonts.get(NotationElement.ScoreCopyright)!.families
-            : resources.tablatureFont.families;
-
-        const font = Font.withFamilyList(fontFamilies, size, FontStyle.Plain, FontWeight.Bold);
-
-        const fakeBarRenderer = new BarRendererBase(this.renderer, this.renderer.tracks![0].staves[0].bars[0]);
-        const glyph = new TextGlyph(0, 0, msg, font, TextAlign.Center, undefined, resources.mainGlyphColor);
-        glyph.renderer = fakeBarRenderer;
-        glyph.doLayout();
-        this.alignScoreInfoGlyph(glyph);
-
-        const e = new RenderFinishedEventArgs();
-
-        e.width = glyph.x + glyph.width;
-        e.x = 0;
-        e.height = size;
-        e.y = y;
-
-        e.totalWidth = this.scaledWidth;
-        e.totalHeight = y + size;
-        e.firstMasterBarIndex = -1;
-        e.lastMasterBarIndex = -1;
-
-        this.registerPartial(e, canvas => {
-            canvas.color = resources.mainGlyphColor;
-            canvas.font = font;
-            canvas.textAlign = TextAlign.Left;
-            canvas.textBaseline = TextBaseline.Top;
-            glyph.paint(0, 0, canvas);
-        });
-
-        return y + size;
-    }
 }

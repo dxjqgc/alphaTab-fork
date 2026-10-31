@@ -42,8 +42,6 @@ export abstract class VerticalLayoutBase extends ScoreLayout {
 
         y = this.layoutAndRenderBottomScoreInfo(y);
 
-        y = this.layoutAndRenderAnnotation(y);
-
         this.height = (y + this.pagePadding![3]) * this.renderer.settings.display.scale;
     }
 
@@ -84,8 +82,6 @@ export abstract class VerticalLayoutBase extends ScoreLayout {
         y = this._resizeAndRenderScore(y, oldHeight);
 
         y = this.layoutAndRenderBottomScoreInfo(y);
-
-        y = this.layoutAndRenderAnnotation(y);
 
         this.height = (y + this.pagePadding![3]) * this.renderer.settings.display.scale;
     }

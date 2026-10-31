@@ -150,7 +150,6 @@ export class HorizontalScreenLayout extends ScoreLayout {
         }
 
         this.height = this.layoutAndRenderBottomScoreInfo(this.height);
-        this.height = this.layoutAndRenderAnnotation(this.height);
 
         this.height += this.pagePadding![3];
 
