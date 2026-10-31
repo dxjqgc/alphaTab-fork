@@ -159,6 +159,28 @@ export abstract class VerticalLayoutBase extends ScoreLayout {
         for (const [scoreElement, _notationElement] of ScoreLayout.headerElements.value) {
             if (this.headerGlyphs.has(scoreElement)) {
                 const glyph: TextGlyph = this.headerGlyphs.get(scoreElement)!;
+
+                // Artist shares the title's first line, right-aligned in the
+                // top-right corner (host convention: artist is a corner byline
+                // like the key/capo block in the opposite corner, not a centered
+                // line under the title). It must not add line height — the
+                // editor canvas (paint.ts drawTitle) reserves the same corner
+                // on its own title line, and both layouts must break lines at
+                // identical heights. Only when actually right-aligned: an
+                // imported score style may override the alignment back to
+                // center — then keep the legacy stacked line (a centered artist
+                // would sit right on top of the centered title).
+                if (
+                    scoreElement === ScoreSubElement.Artist &&
+                    glyph.textAlign === TextAlign.Right &&
+                    this.headerGlyphs.has(ScoreSubElement.Title)
+                ) {
+                    glyph.y = 0;
+                    this.alignScoreInfoGlyph(glyph);
+                    scoreInfoGlyphs.push(glyph);
+                    continue;
+                }
+
                 glyph.y = infoHeight;
                 this.alignScoreInfoGlyph(glyph);
 

@@ -200,12 +200,16 @@ export class ScoreStyle extends ElementStyle<ScoreSubElement> {
     >([
         [ScoreSubElement.Title, new HeaderFooterStyle('%TITLE%', undefined, TextAlign.Center)],
         [ScoreSubElement.SubTitle, new HeaderFooterStyle('%SUBTITLE%', undefined, TextAlign.Center)],
-        [ScoreSubElement.Artist, new HeaderFooterStyle('%ARTIST%', undefined, TextAlign.Center)],
+        // 宿主约定：右上角两行「演唱：X / 制谱：Y」（空值整行不画，见 buildText）。
+        // Artist 右对齐挂在歌名行（VerticalLayoutBase 的同行规则），Transcriber
+        // 堆在下一行、同为右对齐 —— 两条合成右上角的信息列（上游默认把 Transcriber
+        // 藏起来，这里要放开）。
+        [ScoreSubElement.Artist, new HeaderFooterStyle('演唱：%ARTIST%', undefined, TextAlign.Right)],
         [ScoreSubElement.Album, new HeaderFooterStyle('%ALBUM%', undefined, TextAlign.Center)],
         [ScoreSubElement.Words, new HeaderFooterStyle('Words by %WORDS%', undefined, TextAlign.Left)],
         [ScoreSubElement.Music, new HeaderFooterStyle('Music by %MUSIC%', undefined, TextAlign.Right)],
         [ScoreSubElement.WordsAndMusic, new HeaderFooterStyle('Words & Music by %MUSIC%', undefined, TextAlign.Right)],
-        [ScoreSubElement.Transcriber, new HeaderFooterStyle('Tabbed by %TABBER%', false, TextAlign.Right)],
+        [ScoreSubElement.Transcriber, new HeaderFooterStyle('制谱：%TABBER%', undefined, TextAlign.Right)],
         [ScoreSubElement.Copyright, new HeaderFooterStyle('%COPYRIGHT%', undefined, TextAlign.Center)],
         [
             ScoreSubElement.CopyrightSecondLine,
