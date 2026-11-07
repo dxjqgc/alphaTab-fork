@@ -124,9 +124,14 @@ export class NumberedBarRenderer extends LineBarRenderer {
         return this._jianpuEventIsBeamableNote(beatIndex);
     }
 
-    /** 不含 CJK 的歌词 = 空格分隔语言，一个音节就是一整个单词（"evening"）。 */
+    /**
+     * 不含「一字一音节」文字的歌词 = 空格分隔语言，一个音节就是一整个单词（"evening"）。
+     *
+     * 汉字 / 假名 / 谚文都是一个字一个音节（日文歌也一样：`君のことが` 是六个音节，
+     * 按西文放大 1.15× 会看不见），所以假名与谚文必须跟汉字用同一个字号倍率。
+     */
     private static _isLatinLyric(text: string): boolean {
-        return !/[\u3400-\u9fff\uf900-\ufaff]/.test(text);
+        return !/[\u3400-\u9fff\uf900-\ufaff\u3040-\u30ff\u31f0-\u31ff\uff66-\uff9d\uac00-\ud7a3]/.test(text);
     }
 
     public override _registerLayoutingInfo(): void {
