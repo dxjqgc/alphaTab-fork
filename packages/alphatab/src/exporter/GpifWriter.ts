@@ -4,7 +4,6 @@ import { GeneralMidi } from '@coderline/alphatab/midi/GeneralMidi';
 import { MidiFileGenerator } from '@coderline/alphatab/midi/MidiFileGenerator';
 import { MidiUtils } from '@coderline/alphatab/midi/MidiUtils';
 import { AccentuationType } from '@coderline/alphatab/model/AccentuationType';
-import { AccidentalType } from '@coderline/alphatab/model/AccidentalType';
 import { type Automation, AutomationType } from '@coderline/alphatab/model/Automation';
 import { type Bar, SustainPedalMarkerType } from '@coderline/alphatab/model/Bar';
 import { BarreShape } from '@coderline/alphatab/model/BarreShape';
@@ -414,7 +413,27 @@ export class GpifWriter {
         }
     }
 
-    private static readonly _defaultSteps: string[] = ['C', 'C', 'D', 'D', 'E', 'F', 'F', 'G', 'G', 'A', 'A', 'B'];
+    /**
+     * The letters of the diatonic degrees (0 = C … 6 = B) — the step of a written pitch is a
+     * letter of the staff, not a pitch class, so it must come from the resolved spelling.
+     */
+    private static readonly _stepLetters: string[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+
+    /**
+     * The `<Accidental>` texts of the GPIF format, keyed by the semitone offset of the spelling.
+     * Guitar Pro writes the *absolute* spelling of every note: `B`+`b` for a Bb even in a key
+     * which already flats the B (see `test-data/guitarpro8/transposition-tonality-f.gp`), and
+     * `C`+`b` (octave raised) for a B in Cb major. The written accidental is therefore never
+     * suppressed by the key signature — the key only decides *which* spelling is preferred
+     * (`ModelUtils.resolveSpelling`).
+     */
+    private static readonly _accidentalTexts: Map<number, string> = new Map<number, string>([
+        [-2, 'bb'],
+        [-1, 'b'],
+        [0, ''],
+        [1, '#'],
+        [2, 'x']
+    ]);
 
     private _writePitchForValue(
         properties: XmlNode,
@@ -423,72 +442,15 @@ export class GpifWriter {
         accidentalMode: NoteAccidentalMode,
         keySignature: KeySignature
     ) {
-        let index = 0;
-        let octave = 0;
+        const spelling = ModelUtils.resolveSpelling(keySignature, value, accidentalMode);
+        const step: string = GpifWriter._stepLetters[spelling.degree];
+        const accidental: string = GpifWriter._accidentalTexts.has(spelling.accidentalOffset)
+            ? GpifWriter._accidentalTexts.get(spelling.accidentalOffset)!
+            : '';
 
-        let step = '';
-        let accidental = '';
-
-        const updateParts: () => void = () => {
-            index = value % 12;
-            octave = (value / 12) | 0;
-
-            step = GpifWriter._defaultSteps[index];
-            switch (ModelUtils.computeAccidental(keySignature, NoteAccidentalMode.Default, value, false)) {
-                case AccidentalType.None:
-                case AccidentalType.Natural:
-                    accidental = '';
-                    break;
-                case AccidentalType.Sharp:
-                    accidental = '#';
-                    break;
-                case AccidentalType.Flat:
-                    accidental = 'b';
-                    break;
-                case AccidentalType.DoubleSharp:
-                    accidental = 'x';
-                    break;
-                case AccidentalType.DoubleFlat:
-                    accidental = 'bb';
-                    break;
-            }
-        };
-        updateParts();
-
-        switch (accidentalMode) {
-            case NoteAccidentalMode.Default:
-                break;
-            case NoteAccidentalMode.ForceNone:
-                accidental = '';
-                break;
-            case NoteAccidentalMode.ForceNatural:
-                accidental = '';
-                break;
-            case NoteAccidentalMode.ForceSharp:
-                accidental = '#';
-                break;
-            case NoteAccidentalMode.ForceDoubleSharp:
-                if (accidental === '#') {
-                    value -= 2;
-                    updateParts();
-                }
-                accidental = 'x';
-                break;
-            case NoteAccidentalMode.ForceFlat:
-                if (accidental === '#') {
-                    value += 1;
-                    updateParts();
-                }
-                accidental = 'b';
-                break;
-            case NoteAccidentalMode.ForceDoubleFlat:
-                if (accidental === '#') {
-                    value += 2;
-                    updateParts();
-                }
-                accidental = 'bb';
-                break;
-        }
+        // The octave belongs to the letter, not to the pitch class: a Cb in octave 5 is midi 59,
+        // an E# in octave 5 is midi 65 (both verified against Guitar Pro's own files).
+        const octave: number = spelling.octave + 1;
 
         this._writePitch(properties, propertyName, step, octave.toString(), accidental);
     }
